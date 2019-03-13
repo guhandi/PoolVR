@@ -20,11 +20,10 @@ public class CueBallController : MonoBehaviour
         OutOfBounds();
 
         //Adaptation
-        if (CollectData.experiment == 3 && CollectData.cue_cueball)
+        if (Experiment.experiment == 3 && Experiment.cue_cueball)
         {
-            CollectData.cueballRB.AddForce(CollectData.adaptationForce);
+            Experiment.cueballRB.AddForce(Experiment.adaptationForce);
         }
-
     }
 
     //Method that is called at any game object collision with cue ball
@@ -41,16 +40,16 @@ public class CueBallController : MonoBehaviour
         //If cue ball collides with cue stick
         if (col.gameObject.name == "Cue")
         {
-            CollectData.cue_cueball = true;
+            Experiment.cue_cueball = true;
         }
 
         //If cue ball hits red ball
         if (col.gameObject.name == "RedBall")
         {
-            CollectData.cueball_redball = true;
+            Experiment.cueball_redball = true;
 
             //For second experimental condition, the visiual feedback is removed and the balls disappear from the environmnet after contact is made
-            if (CollectData.experiment == 2)
+            if (Experiment.experiment == 2)
             {
                 StartCoroutine(Dissappear());
             }
@@ -63,21 +62,19 @@ public class CueBallController : MonoBehaviour
     IEnumerator Dissappear()
     {
         //Wait 0.5s after cue ball collides with redball before objects become invisible
-        yield return new WaitForSeconds(CollectData.waitTime);
-        CollectData.cueMesh.enabled = false;
-        CollectData.redballMesh.enabled = false;
+        yield return new WaitForSeconds(Experiment.waitTime);
+        Experiment.cueMesh.enabled = false;
+        Experiment.redballMesh.enabled = false;
     }
 
     //Function to check if cue ball leaves the pool table
     void OutOfBounds()
     {
-        float tableLimX = -(CollectData.poolTableLength + 0.1f); // Table x range = [-2 min, 0 max]
-        float tableLimZ = CollectData.poolTableWidth + 0.1f; //Table z range = [-0.5 min, 0.5 max]
+        float tableLimX = -(Experiment.poolTableLength + 0.1f); // Table x range = [-2 min, 0 max]
+        float tableLimZ = Experiment.poolTableWidth + 0.1f; //Table z range = [-0.5 min, 0.5 max]
         if (transform.position.x < tableLimX || transform.position.x > 0.1 || Mathf.Abs(transform.position.z) > tableLimZ)
         {
-            CollectData.outOfBounds = true;
+            Experiment.outOfBounds = true;
         }
-
     }
-
 }
