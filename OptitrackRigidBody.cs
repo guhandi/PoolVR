@@ -90,12 +90,12 @@ public class OptitrackRigidBody : MonoBehaviour
 
     void OnBeforeRender()
     {
-        UpdatePose();
+        //UpdatePose();
     }
 #endif
 
 
-    void FixedUpdate()
+    void Update()
     {
         if (Experiment.experiment == 0 && Experiment.isEnvSet)
         {
@@ -140,17 +140,6 @@ public class OptitrackRigidBody : MonoBehaviour
                     frontPos = marker.Position; //front position has highest z position
                     maxz = frontPos.z;
                 }
-                //if (marker.Position.z < minz)
-                //{
-                //    backPos = marker.Position; //back position has lowest z value
-                //    minz = backPos.z;
-                //}
-                //if (marker.Position.z > maxz)
-                //{
-                //   frontPos = marker.Position; //front position has highest z position
-                //    maxz = frontPos.z;
-                //}
-
             }
 
             float[,] frontMatrix = new float[,] { { frontPos.x }, { frontPos.z }, { 1 } };
@@ -162,18 +151,7 @@ public class OptitrackRigidBody : MonoBehaviour
 
             Vector3 direction = frontPos - backPos;
             cuePos = backPos - Experiment.cuePositionWeight * direction;
-            //cuePos = Experiment.backWeight * backPos + Experiment.frontWeight * frontPos;
 
-            //Vector3 Opticuepos = Experiment.backWeight * backPos + Experiment.frontWeight * frontPos; //Set cue position (in Motiv env) to be weighted towards back marker
-            //Debug.Log(Opticuepos.ToString("f4"));
-            //Transform cue position in Motiv to Unity environment by multiplying coordinates with transformation matrix
-            //float[,] OptiposM = new float[,] { { Opticuepos.x }, { Opticuepos.z }, { 1 } };
-            //transformed = Experiment.MultiplyMatrix(Experiment.M, OptiposM);
-            //cuePos = new Vector3(transformed[0, 0], Opticuepos.y * yratio, transformed[1, 0]); //Unity cue position
-
-            //Debug.Log("backpos   : " + backPos.ToString("f4"));
-            //Debug.Log("fronpos   : " + frontPos.ToString("f4"));
-            //Debug.Log("cue pos : " + cuePos.ToString("f4"));
             //calculate velocity
             cueVelocity = (cuePos - prevPos) / Time.fixedDeltaTime;
             VelocityList.Add(cueVelocity);
@@ -184,11 +162,7 @@ public class OptitrackRigidBody : MonoBehaviour
             this.transform.position = cuePos;
             //get forward direction by lookng at forwrd position
             this.transform.rotation = Quaternion.LookRotation(frontPos - backPos) * Quaternion.Euler(90f, 0f, 0f);
-            //this.transform.localPosition = rbState.Pose.Position;
-            //this.transform.localRotation = rbState.Pose.Orientation;
 
-            //Debug.Log(this.transform.position.ToString("f4"));
-            
         }
     }
 
@@ -255,15 +229,15 @@ public class OptitrackRigidBody : MonoBehaviour
             if (test)
             {
                 Debug.Log("corner1ID = " + corner1ID);
-                Debug.Log("corner1 position = " + avgC1);
+                Debug.Log("corner1 position = " + avgC1.ToString("f4"));
                 Debug.Log("corner2ID = " + corner2ID);
-                Debug.Log("corner2 position = " + avgC2);
+                Debug.Log("corner2 position = " + avgC2.ToString("f4"));
                 Debug.Log("corner3ID = " + corner3ID);
-                Debug.Log("corner3 position = " + avgC3);
+                Debug.Log("corner3 position = " + avgC3.ToString("f4"));
                 Debug.Log("Unity positions");
-                Debug.Log("corner1" + Experiment.corner1.position);
-                Debug.Log("corner2" + Experiment.corner2.position);
-                Debug.Log("corner3" + Experiment.corner3.position);
+                Debug.Log("corner1" + Experiment.corner1.position.ToString("f4"));
+                Debug.Log("corner2" + Experiment.corner2.position.ToString("f4"));
+                Debug.Log("corner3" + Experiment.corner3.position.ToString("f4"));
 
                 float optiPocketDist = (avgC1 - avgC2).magnitude;
                 float unityPocketDist = (Experiment.corner1.position - Experiment.corner2.position).magnitude;
@@ -359,7 +333,7 @@ public class OptitrackRigidBody : MonoBehaviour
             }
             frontID = idfront;
             backID = idback;
-            
+
         }
     }
 
