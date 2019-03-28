@@ -17,7 +17,7 @@ public class CueBallController : MonoBehaviour
     void Update()
     {
         //Check if cue ball is hit out of table
-        OutOfBounds();
+        //OutOfBounds();
 
         //Adaptation
         if (Experiment.experiment == 3 && Experiment.cue_cueball)
@@ -70,9 +70,9 @@ public class CueBallController : MonoBehaviour
     //Function to check if cue ball leaves the pool table
     void OutOfBounds()
     {
-        float tableLimX = -(Experiment.poolTableLength + 0.1f); // Table x range = [-2 min, 0 max]
+        float tableLimX = -(2* Experiment.poolTableWidth + 0.1f); // Table x range = [-2 min, 0 max]
         float tableLimZ = Experiment.poolTableWidth + 0.1f; //Table z range = [-0.5 min, 0.5 max]
-        if (transform.position.x < tableLimX || transform.position.x > 0.1 || Mathf.Abs(transform.position.z) > tableLimZ)
+        if (transform.position.x < Experiment.corner1.position.x || transform.position.x > Experiment.corner2.position.x)
         {
             Experiment.outOfBounds = true;
         }
