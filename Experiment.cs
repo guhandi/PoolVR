@@ -12,7 +12,7 @@ public class Experiment : MonoBehaviour
 
     //************************************************************************ */
     //Data Collection - trials, experiment type, number etc
-    public static int experiment = 1; //0 = calibration, 1 = normal, 2 = no feedback, 3 = adaptation
+    public static int experiment = 1; //0 = calibration, 1 = normal, 2 = adaptation, 3 = reward
     public static Vector3 adaptationForce = new Vector3(5f, 0, 0); //force applied to the cue ball for adaptation task
     public static float waitTime = 0.5f; //time to wait before feedback change
     public static int totalTrials = 50; //trials per block
@@ -39,6 +39,7 @@ public class Experiment : MonoBehaviour
     public static Rigidbody cueballRB; //cue ball rigidbody
     public static Rigidbody redballRB; //red ball rigidbody
     public static Rigidbody cueRB; //cue stick rigidbody
+    public static Transform front; //reference to front of cue stick
     public static Transform cueTip; //cue tip
     public static Transform hmd; //vive headset
     public static Transform table; //table object
@@ -47,6 +48,10 @@ public class Experiment : MonoBehaviour
     public static Transform corner2; //unity pocket 2
     public static Transform corner3; //unity pocket 3
     public static Transform corner4; //unity pocket 4
+    public static float xmin;
+    public static float xmax;
+    public static float zmin;
+    public static float zmax;
     public static Vector3 cueballstart; //cue ball starting position
     public static Vector3 redballstart; //red ball starting position
     public static Vector3 cuestart; //cue stick starting position
@@ -77,17 +82,20 @@ public class Experiment : MonoBehaviour
     // Use this for initialization
     void Start()
     {
+
         //Initialize game variables
         initGameVariables();
-
+        
         //Calibrate environments
         startCalibration();
+        setTableBoundary();
 
         //Data stuff
         csv = new StringBuilder(); //file object to write to
         dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test.txt"; //path directory to write text file to
         startInfo(); //write subject data to file
 
+        //testing
         test = true;
 
     }
@@ -101,7 +109,7 @@ public class Experiment : MonoBehaviour
         storeData();
         if (count % 100 == 0)
         {
-            File.AppendAllText(dir, csv.ToString());
+            //File.AppendAllText(dir, csv.ToString());
         }
 
         //restart scene after shot is taken and balls are stationary
@@ -120,9 +128,7 @@ public class Experiment : MonoBehaviour
                 isEnvSet = true;
 
             }
-
         }
-
     }
 
     //************************************************************************ */
@@ -160,6 +166,8 @@ public class Experiment : MonoBehaviour
         corner2 = GameObject.Find("Corner2").GetComponent<Transform>();
         corner3 = GameObject.Find("Corner3").GetComponent<Transform>();
         corner4 = GameObject.Find("Corner4").GetComponent<Transform>();
+
+
     }
 
     public static void startCalibration()
@@ -181,29 +189,35 @@ public class Experiment : MonoBehaviour
         setCueSize(); //scale cue stick size
         setBallSize(); //scale ball size
 
-        //store object start positions
-        cueballstart = cueballRB.position;
-        redballstart = redballRB.position;
-        cuestart = cueRB.position;
-
         //Game physics
         numVelocitiesAverage = 5;
         poolTableWidth = PlayerPrefs.GetFloat("poolTableWidth"); //unity
         realWidth = PlayerPrefs.GetFloat("realWidth"); //unity
-        yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("optitrackTableHeight"); //height sclaing ratio between environemnts
+        //yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("optitrackTableHeight"); //height sclaing ratio between environemnts
+        yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("Ocuey");
         cuePositionWeight = PlayerPrefs.GetFloat("marker3_base") / (PlayerPrefs.GetFloat("marker1_marker2") + PlayerPrefs.GetFloat("marker2_marker3"));
 
-    }
+        //store object start positions
+        float[,] OcueStart = new float[,] { { PlayerPrefs.GetFloat("Ocuex") }, { PlayerPrefs.GetFloat("Ocuez") }, { 1 } };
+        float[,] UcueStart = MultiplyMatrix(M, OcueStart);
+        Vector3 cuePosition = new Vector3(UcueStart[0, 0], PlayerPrefs.GetFloat("Ocuey") * yratio, UcueStart[1, 0]);
+        cueballstart = cuePosition;
+        redballstart = redballRB.position;
+        cuestart = cueRB.position;
+        //Debug.Log("cueinit  :" + cueballRB.transform.position);
+        //cueballRB.transform.position = cueballstart; //set ball position
+        //Debug.Log("cuepos  :" + cueballstart);
+        
 
+    }
+   
     //place unity object at corner 3 position
     public static void setEnvPosition(Vector3 objectPos)
     {
         Vector3 cornerpos = corner3.position;
-        Vector3 yshift = new Vector3(0f, 0.03f, 0f);
-        Vector3 envOffset = objectPos - cornerpos - yshift;
+        Vector3 envOffset = objectPos - cornerpos;
         env.position = env.position + envOffset;
         
-
         PlayerPrefs.SetFloat("ShiftEnvironemnt_x", env.position.x);
         PlayerPrefs.SetFloat("ShiftEnvironemnt_y", env.position.y);
         PlayerPrefs.SetFloat("ShiftEnvironemnt_z", env.position.z);
@@ -229,7 +243,10 @@ public class Experiment : MonoBehaviour
         float realLength = PlayerPrefs.GetFloat("realCueLength");
         float unityLength = (cueRB.transform.position - cueTip.position).magnitude;
         float desiredLength = realLength * PlayerPrefs.GetFloat("cmToUnity");
+        Debug.Log(cueRB.transform.position.ToString("f4"));
+        Debug.Log(cueTip.position.ToString("f4"));
         float cueScale = desiredLength / unityLength;
+        //float cueScale = 0.55f;
         cueRB.transform.localScale = cueRB.transform.localScale * cueScale;
         PlayerPrefs.SetFloat("unityCueLength", (cueRB.transform.position - cueTip.position).magnitude);
     }
@@ -239,6 +256,16 @@ public class Experiment : MonoBehaviour
         cueballRB.transform.localScale = new Vector3(1.25f, 1.25f, 1.25f);
         redballRB.transform.localScale = new Vector3(1.25f, 1.25f, 1.25f);
 
+    }
+
+    //Get table limits
+    public void setTableBoundary()
+    {
+        float d = 1f;
+        xmin = corner1.transform.position.x - d;
+        xmax = corner3.transform.position.x + d;
+        zmin = corner1.transform.position.z - d;
+        zmax = corner4.transform.position.z + d;
     }
 
     public static Vector3 transformCoordinates(Vector3 pos, float[,] m)
@@ -390,7 +417,7 @@ public class Experiment : MonoBehaviour
     //function to return a single string representation of a vector
     private string vecToStr(Vector3 val)
     {
-        return "(" + val[0] + ";" + val[1] + ";" + val[2] + ")";
+        return ("" + val[0] + ";" + val[1] + ";" + val[2] + ";");
     }
 
     //Function to write the start information
@@ -440,15 +467,8 @@ public class Experiment : MonoBehaviour
 
         float[,] tableOptiPoints = new float[,] { { o1x, o2x, o3x }, { o1z, o2z, o3z }, { 1f, 1f, 1f } }; //matrix of points from the Optitrack tracked markers from the pool table pockets
         float[,] tableUnityPoints = new float[,] { { u1x, u2x, u3x }, { u1z, u2z, u3z }, { 1f, 1f, 1f } }; //pocket positions in Unity
-        //float[,] tableOptiPoints = new float[,] { { o1x, o2x, o3x }, { o1y, o2y, o3y }, { o1z, o2z, o3z } }; //matrix of points from the Optitrack tracked markers from the pool table pockets
-        //float[,] tableUnityPoints = new float[,] { { u1x, u2x, u3x }, { u1y, u2y, u3y }, { u1z, u2z, u3z } }; //pocket positions in Unity
         float[,] trans = MultiplyMatrix(tableUnityPoints, inverseMat(tableOptiPoints)); //transformation matrix (Xu,Zu,1) = M * (Xo,Zo,1)
-        Debug.Log(trans[0, 0]);
-        Debug.Log(trans[0, 1]);
-        Debug.Log(trans[0, 2]);
-        Debug.Log(trans[1, 0]);
-        Debug.Log(trans[1, 1]);
-        Debug.Log(trans[1, 2]);
+        
         return trans;
 
     }
@@ -480,8 +500,8 @@ public class Experiment : MonoBehaviour
         PlayerPrefs.SetFloat("unityCueLength", 1.3425f);
         PlayerPrefs.SetFloat("realCueLength", 122f); //centimeters
         PlayerPrefs.SetFloat("tip_marker1", 35f); //centimeters
-        PlayerPrefs.SetFloat("marker1_marker2", 33f); //centimeters
-        PlayerPrefs.SetFloat("marker2_marker3", 33f); //centimeters
+        PlayerPrefs.SetFloat("marker1_marker2", 32.7f); //centimeters
+        PlayerPrefs.SetFloat("marker2_marker3", 33.5f); //centimeters
         PlayerPrefs.SetFloat("marker3_base", 22f); //centimeters
         PlayerPrefs.SetFloat("yratio", 1f);
         PlayerPrefs.SetFloat("frontWeight", 0.05f); //weight of cue towards front marker
