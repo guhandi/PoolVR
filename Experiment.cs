@@ -30,6 +30,7 @@ public class Experiment : MonoBehaviour
     public static float yratio; //height sclaing ratio between environemnts
     public static float cmToUnity; //cm * cmToUnity = Unity
     public static float cuePositionWeight; //weight of cue stick position in Unity relative to marker positions in Optitrack
+    public static Vector3 cuestickOffset; //to precisely match the cue stick with the cue ball
     public static bool isEnvSet; //true if shiftEnvironment and envScale are calibrated
 
 
@@ -39,8 +40,9 @@ public class Experiment : MonoBehaviour
     public static Rigidbody cueballRB; //cue ball rigidbody
     public static Rigidbody redballRB; //red ball rigidbody
     public static Rigidbody cueRB; //cue stick rigidbody
-    public static Transform front; //reference to front of cue stick
+    public static Rigidbody cueFront; //reference to front of cue stick
     public static Transform cueTip; //cue tip
+    public static Transform cueBack; //base of cue stick
     public static Transform hmd; //vive headset
     public static Transform table; //table object
     public static Transform env; //environment (Scaler) object
@@ -78,11 +80,13 @@ public class Experiment : MonoBehaviour
     private int count = 0;
     private bool test;
 
+    //testing
+    
+
     //************************************************************************ */
     // Use this for initialization
     void Start()
     {
-
         //Initialize game variables
         initGameVariables();
         
@@ -97,6 +101,7 @@ public class Experiment : MonoBehaviour
 
         //testing
         test = true;
+
 
     }
 
@@ -125,10 +130,14 @@ public class Experiment : MonoBehaviour
             {
                 setScale(realWidth, ctrl1.transform.position, ctrl2.transform.position);
                 setEnvPosition(ctrl2.transform.position);
+                PlayerPrefs.SetFloat("unityTableHeight", CueBallController.tableHeight.y);
+                Debug.Log(CueBallController.tableHeight.y);
                 isEnvSet = true;
 
             }
         }
+
+        //testing
     }
 
     //************************************************************************ */
@@ -141,6 +150,9 @@ public class Experiment : MonoBehaviour
         redballRB = GameObject.Find("RedBall").GetComponent<Rigidbody>(); //physics rigidbody of red ball
         cueballRB = GameObject.Find("CueBall").GetComponent<Rigidbody>(); //physics rigidbody of cue ball
         cueTip = GameObject.FindGameObjectWithTag("cuetip").GetComponent<Transform>();
+        cueBack = GameObject.Find("CueBack").GetComponent<Transform>();
+        cueFront = GameObject.Find("CueFront").GetComponent<Rigidbody>();
+        cueFront.constraints = RigidbodyConstraints.FreezeRotation;
         hmd = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Transform>();
         env = GameObject.Find("Scaler").GetComponent<Transform>();
         table = GameObject.FindGameObjectWithTag("table").GetComponent<Transform>();
@@ -166,6 +178,10 @@ public class Experiment : MonoBehaviour
         corner2 = GameObject.Find("Corner2").GetComponent<Transform>();
         corner3 = GameObject.Find("Corner3").GetComponent<Transform>();
         corner4 = GameObject.Find("Corner4").GetComponent<Transform>();
+
+        //testing
+
+        
 
 
     }
@@ -204,20 +220,23 @@ public class Experiment : MonoBehaviour
         cueballstart = cuePosition;
         redballstart = redballRB.position;
         cuestart = cueRB.position;
+
+        //Testing
         //Debug.Log("cueinit  :" + cueballRB.transform.position);
         //cueballRB.transform.position = cueballstart; //set ball position
         //Debug.Log("cuepos  :" + cueballstart);
-        
+        Debug.Log("yrat  :" + yratio.ToString("f4"));
+
 
     }
    
-    //place unity object at corner 3 position
+    //place unity object at corner 3 (close right) position
     public static void setEnvPosition(Vector3 objectPos)
     {
         Vector3 cornerpos = corner3.position;
         Vector3 envOffset = objectPos - cornerpos;
         env.position = env.position + envOffset;
-        
+
         PlayerPrefs.SetFloat("ShiftEnvironemnt_x", env.position.x);
         PlayerPrefs.SetFloat("ShiftEnvironemnt_y", env.position.y);
         PlayerPrefs.SetFloat("ShiftEnvironemnt_z", env.position.z);
@@ -241,14 +260,32 @@ public class Experiment : MonoBehaviour
     public static void setCueSize()
     {
         float realLength = PlayerPrefs.GetFloat("realCueLength");
-        float unityLength = (cueRB.transform.position - cueTip.position).magnitude;
+        float unityLength = (cueBack.transform.position - cueTip.position).magnitude;
         float desiredLength = realLength * PlayerPrefs.GetFloat("cmToUnity");
-        Debug.Log(cueRB.transform.position.ToString("f4"));
-        Debug.Log(cueTip.position.ToString("f4"));
+        Debug.Log(unityLength.ToString("f4"));
+        Debug.Log(PlayerPrefs.GetFloat("cmToUnity").ToString("f4"));
         float cueScale = desiredLength / unityLength;
-        //float cueScale = 0.55f;
-        cueRB.transform.localScale = cueRB.transform.localScale * cueScale;
-        PlayerPrefs.SetFloat("unityCueLength", (cueRB.transform.position - cueTip.position).magnitude);
+        
+        //float cueScale = 0.75f;
+        Debug.Log("scale = " + cueScale.ToString("f4"));
+        cueFront.transform.localScale = cueFront.transform.localScale * cueScale;
+        PlayerPrefs.SetFloat("unityCueLength", (cueBack.transform.position - cueTip.position).magnitude);
+    }
+
+    public static Vector3 setCueOffset()
+    {
+        float ocuex = PlayerPrefs.GetFloat("Ocuex");
+        float ocuey = PlayerPrefs.GetFloat("Ocuey");
+        float ocuez = PlayerPrefs.GetFloat("Ocuez");
+        float[,] oMat = new float[,] { { ocuex }, { ocuez }, { 1 } };
+        float[,] uMat = MultiplyMatrix(M, oMat);
+        Vector3 optistart = new Vector3(uMat[0, 0], ocuey * yratio, uMat[1, 0]);
+
+        //Vector3 optistart = new Vector3(ocuex, ocuey, ocuez);
+        Vector3 actualstart = new Vector3(cueballRB.transform.position.x, PlayerPrefs.GetFloat("unityTableHeight"), cueballRB.transform.position.z);
+
+        return actualstart - optistart;
+
     }
 
     public static void setBallSize()
@@ -495,7 +532,7 @@ public class Experiment : MonoBehaviour
         //Real life and virtual environment measurements
         PlayerPrefs.SetFloat("poolTableWidth", 1f); //unity
         PlayerPrefs.SetFloat("realWidth", 68f); //cm
-        PlayerPrefs.SetFloat("unityTableHeight", 0.8545f);
+        PlayerPrefs.SetFloat("unityTableHeight", 0.86f);
         PlayerPrefs.SetFloat("optitrackTableHeight", 1.585f);
         PlayerPrefs.SetFloat("unityCueLength", 1.3425f);
         PlayerPrefs.SetFloat("realCueLength", 122f); //centimeters

@@ -6,21 +6,21 @@ using UnityEngine.SceneManagement;
 //A class that tracks the cue ball to perfom necessary game functions and to keep track of various game events
 public class CueBallController : MonoBehaviour
 {
-
+    public static Vector3 tableHeight;
     // Use this for initialization
     void Start()
     {
-
+        tableHeight = new Vector3();
     }
 
     // Update is called once per frame
     void Update()
     {
         //Check if cue ball is hit out of table
-        //OutOfBounds();
+        OutOfBounds();
 
         //Adaptation
-        if (Experiment.experiment == 3 && Experiment.cue_cueball)
+        if (Experiment.experiment == 2 && Experiment.cue_cueball)
         {
             Experiment.cueballRB.AddForce(Experiment.adaptationForce);
         }
@@ -30,7 +30,10 @@ public class CueBallController : MonoBehaviour
     void OnCollisionEnter(Collision col)
     {
         Rigidbody rb = col.gameObject.GetComponent<Rigidbody>();
-
+        if (Experiment.experiment == 0 && col.gameObject.name == "Table")
+        {
+            tableHeight = col.contacts[0].point;
+        }
         //If cue ball doesn't collide with any rigidbody do nothing
         if (!rb)
         {
@@ -49,12 +52,12 @@ public class CueBallController : MonoBehaviour
             Experiment.cueball_redball = true;
 
             //For second experimental condition, the visiual feedback is removed and the balls disappear from the environmnet after contact is made
-            if (Experiment.experiment == 2)
+            if (Experiment.experiment == 3)
             {
                 StartCoroutine(Dissappear());
             }
-
         }
+        
 
     }
 
@@ -67,12 +70,11 @@ public class CueBallController : MonoBehaviour
         Experiment.redballMesh.enabled = false;
     }
 
+
     //Function to check if cue ball leaves the pool table
     void OutOfBounds()
     {
-        float tableLimX = -(2* Experiment.poolTableWidth + 0.1f); // Table x range = [-2 min, 0 max]
-        float tableLimZ = Experiment.poolTableWidth + 0.1f; //Table z range = [-0.5 min, 0.5 max]
-        if (transform.position.x < Experiment.corner1.position.x || transform.position.x > Experiment.corner2.position.x)
+        if (this.transform.position.x < Experiment.xmin || this.transform.position.x > Experiment.xmax || this.transform.position.z < Experiment.zmin || this.transform.position.z > Experiment.zmax)
         {
             Experiment.outOfBounds = true;
         }
