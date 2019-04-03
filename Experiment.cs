@@ -13,7 +13,7 @@ public class Experiment : MonoBehaviour
     //************************************************************************ */
     //Data Collection - trials, experiment type, number etc
     public static int experiment = 1; //0 = calibration, 1 = normal, 2 = adaptation, 3 = reward
-    public static Vector3 adaptationForce = new Vector3(5f, 0, 0); //force applied to the cue ball for adaptation task
+    public static Vector3 adaptationForce = new Vector3(-5f, 0, 0); //force applied to the cue ball for adaptation task
     public static float waitTime = 0.5f; //time to wait before feedback change
     public static int totalTrials = 50; //trials per block
     public static float angularDrag = 0.8f; //angular drag on the pool balls

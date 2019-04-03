@@ -6,9 +6,11 @@ using UnityEngine.SceneManagement;
 //A class that tracks the cue ball to perfom necessary game functions and to keep track of various game events
 public class CueBallController : MonoBehaviour
 {
+    private bool onAdapt;
     // Use this for initialization
     void Start()
     {
+        onAdapt = true;
     }
 
     // Update is called once per frame
@@ -18,9 +20,17 @@ public class CueBallController : MonoBehaviour
         OutOfBounds();
 
         //Adaptation
+        if (Experiment.cueball_redball || this.transform.position.z > Experiment.redballRB.position.z)
+        {
+            onAdapt = false;
+        }
         if (Experiment.experiment == 2 && Experiment.cue_cueball)
         {
-            Experiment.cueballRB.AddForce(Experiment.adaptationForce);
+            if (onAdapt)
+            {
+                Experiment.cueballRB.AddForce(Experiment.adaptationForce);
+            }
+            
         }
     }
 
