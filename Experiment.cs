@@ -29,8 +29,6 @@ public class Experiment : MonoBehaviour
     public static float realWidth; //unity
     public static float yratio; //height sclaing ratio between environemnts
     public static float cmToUnity; //cm * cmToUnity = Unity
-    public static float cuePositionWeight; //weight of cue stick position in Unity relative to marker positions in Optitrack
-    public static Vector3 cuestickOffset; //to precisely match the cue stick with the cue ball
     public static bool isEnvSet; //true if shiftEnvironment and envScale are calibrated
 
 
@@ -43,7 +41,6 @@ public class Experiment : MonoBehaviour
     public static Rigidbody cueFront; //reference to front of cue stick
     public static Transform cueTip; //cue tip
     public static Transform cueBack; //base of cue stick
-    public static Transform hmd; //vive headset
     public static Transform table; //table object
     public static Transform env; //environment (Scaler) object
     public static Transform corner1; //unity pocket 1
@@ -118,7 +115,7 @@ public class Experiment : MonoBehaviour
         }
 
         //restart scene after shot is taken and balls are stationary
-        if (experiment != 0 && cue_cueball && isSceneStill())
+        if (experiment != 0 && cue_cueball && (isSceneStill() || outOfBounds))
         {
             restartScene();
         }
@@ -130,8 +127,6 @@ public class Experiment : MonoBehaviour
             {
                 setScale(realWidth, ctrl1.transform.position, ctrl2.transform.position);
                 setEnvPosition(ctrl2.transform.position);
-                PlayerPrefs.SetFloat("unityTableHeight", CueBallController.tableHeight.y);
-                Debug.Log(CueBallController.tableHeight.y);
                 isEnvSet = true;
 
             }
@@ -153,7 +148,7 @@ public class Experiment : MonoBehaviour
         cueBack = GameObject.Find("CueBack").GetComponent<Transform>();
         cueFront = GameObject.Find("CueFront").GetComponent<Rigidbody>();
         cueFront.constraints = RigidbodyConstraints.FreezeRotation;
-        hmd = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Transform>();
+        cueFront.constraints = RigidbodyConstraints.FreezePosition;
         env = GameObject.Find("Scaler").GetComponent<Transform>();
         table = GameObject.FindGameObjectWithTag("table").GetComponent<Transform>();
         cueMesh = GameObject.Find("Cue").GetComponent<MeshRenderer>(); ; //visible mesh of the cue object
@@ -182,8 +177,6 @@ public class Experiment : MonoBehaviour
         //testing
 
         
-
-
     }
 
     public static void startCalibration()
@@ -211,21 +204,13 @@ public class Experiment : MonoBehaviour
         realWidth = PlayerPrefs.GetFloat("realWidth"); //unity
         //yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("optitrackTableHeight"); //height sclaing ratio between environemnts
         yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("Ocuey");
-        cuePositionWeight = PlayerPrefs.GetFloat("marker3_base") / (PlayerPrefs.GetFloat("marker1_marker2") + PlayerPrefs.GetFloat("marker2_marker3"));
 
         //store object start positions
-        float[,] OcueStart = new float[,] { { PlayerPrefs.GetFloat("Ocuex") }, { PlayerPrefs.GetFloat("Ocuez") }, { 1 } };
-        float[,] UcueStart = MultiplyMatrix(M, OcueStart);
-        Vector3 cuePosition = new Vector3(UcueStart[0, 0], PlayerPrefs.GetFloat("Ocuey") * yratio, UcueStart[1, 0]);
-        cueballstart = cuePosition;
+        cueballstart = cueballRB.position;
         redballstart = redballRB.position;
         cuestart = cueRB.position;
 
         //Testing
-        //Debug.Log("cueinit  :" + cueballRB.transform.position);
-        //cueballRB.transform.position = cueballstart; //set ball position
-        //Debug.Log("cuepos  :" + cueballstart);
-        Debug.Log("yrat  :" + yratio.ToString("f4"));
 
 
     }
@@ -272,26 +257,11 @@ public class Experiment : MonoBehaviour
         PlayerPrefs.SetFloat("unityCueLength", (cueBack.transform.position - cueTip.position).magnitude);
     }
 
-    public static Vector3 setCueOffset()
-    {
-        float ocuex = PlayerPrefs.GetFloat("Ocuex");
-        float ocuey = PlayerPrefs.GetFloat("Ocuey");
-        float ocuez = PlayerPrefs.GetFloat("Ocuez");
-        float[,] oMat = new float[,] { { ocuex }, { ocuez }, { 1 } };
-        float[,] uMat = MultiplyMatrix(M, oMat);
-        Vector3 optistart = new Vector3(uMat[0, 0], ocuey * yratio, uMat[1, 0]);
-
-        //Vector3 optistart = new Vector3(ocuex, ocuey, ocuez);
-        Vector3 actualstart = new Vector3(cueballRB.transform.position.x, PlayerPrefs.GetFloat("unityTableHeight"), cueballRB.transform.position.z);
-
-        return actualstart - optistart;
-
-    }
-
     public static void setBallSize()
     {
-        cueballRB.transform.localScale = new Vector3(1.25f, 1.25f, 1.25f);
-        redballRB.transform.localScale = new Vector3(1.25f, 1.25f, 1.25f);
+        float d = 1.25f;
+        cueballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
+        redballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
 
     }
 
@@ -332,6 +302,10 @@ public class Experiment : MonoBehaviour
         scratch = false;
         outOfBounds = false;
 
+        //other
+        cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
+        cueFront.constraints = RigidbodyConstraints.FreezeRotation;
+        cueFront.constraints = RigidbodyConstraints.FreezePosition;
 
         //Load starting scene again
         SceneManager.LoadScene("Main");
@@ -473,7 +447,7 @@ public class Experiment : MonoBehaviour
     public static Vector3 getEnvShift()
     {
         float offx = PlayerPrefs.GetFloat("ShiftEnvironemnt_x"); //cm : unity
-        float offy = PlayerPrefs.GetFloat("ShiftEnvironemnt_y");
+        float offy = PlayerPrefs.GetFloat("ShiftEnvironemnt_y") + (3f * PlayerPrefs.GetFloat("cmToUnity"));
         float offz = PlayerPrefs.GetFloat("ShiftEnvironemnt_z");
         return new Vector3(offx, offy, offz);
     }
@@ -509,7 +483,6 @@ public class Experiment : MonoBehaviour
         return trans;
 
     }
-
 
     public static void GameInfo()
     {

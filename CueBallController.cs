@@ -6,11 +6,9 @@ using UnityEngine.SceneManagement;
 //A class that tracks the cue ball to perfom necessary game functions and to keep track of various game events
 public class CueBallController : MonoBehaviour
 {
-    public static Vector3 tableHeight;
     // Use this for initialization
     void Start()
     {
-        tableHeight = new Vector3();
     }
 
     // Update is called once per frame
@@ -30,10 +28,6 @@ public class CueBallController : MonoBehaviour
     void OnCollisionEnter(Collision col)
     {
         Rigidbody rb = col.gameObject.GetComponent<Rigidbody>();
-        if (Experiment.experiment == 0 && col.gameObject.name == "Table")
-        {
-            tableHeight = col.contacts[0].point;
-        }
         //If cue ball doesn't collide with any rigidbody do nothing
         if (!rb)
         {

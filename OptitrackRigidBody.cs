@@ -11,7 +11,6 @@ public class OptitrackRigidBody : MonoBehaviour
 {
     public OptitrackStreamingClient StreamingClient;
     public Int32 RigidBodyId; //Id of rigidbody object being streamed from Motiv
-    public static Dictionary<int, Vector3> markerList;
     public int count;
 
     //public Transform front; //reference to the tip of the cue stick - used for cue stick positioning
@@ -24,7 +23,6 @@ public class OptitrackRigidBody : MonoBehaviour
     private Vector3 Opticuepos; //cue position in Optitrack environment
     private Vector3 cueVelocity; //velocity of cue stick as it is being moved
     private Vector3 avgVelocity; //average velocity of the cue stick (for smoothing)
-    private Vector3 offset;
     private List<Vector3> VelocityList; //list of last 5 cue velocities
     private float[,] transformFront;
     private float[,] transformBack;
@@ -79,15 +77,11 @@ public class OptitrackRigidBody : MonoBehaviour
         {
             getMarkerId();
         }
+        
+        
 
         test = true; //for calibration
-        float ocuex = PlayerPrefs.GetFloat("Ocuex");
-        float ocuey = PlayerPrefs.GetFloat("Ocuey");
-        float ocuez = PlayerPrefs.GetFloat("Ocuez");
-        float[,] oMat = new float[,] { { ocuex }, { ocuez }, { 1 } };
-        float[,] uMat = Experiment.MultiplyMatrix(Experiment.M, oMat);
-        Vector3 optistart = new Vector3(uMat[0, 0], ocuey * Experiment.yratio, uMat[1, 0]);
-        offset = Experiment.cueballRB.transform.position - optistart;
+        
     }
 
 
@@ -128,65 +122,53 @@ public class OptitrackRigidBody : MonoBehaviour
     //Update the position of the cue rigidbody every frame
     void UpdatePose()
     {
-        float optiY = 0f;
-        int nummark = 0;
         Vector3 OfrontPos = new Vector3();
         Vector3 ObackPos = new Vector3();
-        Vector3 OavgPosition = new Vector3();
         OptitrackRigidBodyState rbState = StreamingClient.GetLatestRigidBodyState(RigidBodyId); //access rigidbody
         List<OptitrackMarkerState> markerStates = new List<OptitrackMarkerState>(); //initialize list of marker objects from rigidbody
-        List<Vector3> markerPositions = new List<Vector3>(); //initialize list of marker positions
 
         if (rbState != null)
         {
             //Get marker positions
             markerStates = StreamingClient.GetLatestMarkerStates(); //get objects of all markers from rigidbody
-            nummark = markerStates.Count;
             //go through all markers and set front/back positions to relevant marker positions
+            float maxz = -1000f;
+            float minz = 1000f;
             for (int idx = 0; idx < markerStates.Count; idx++)
             {
                 OptitrackMarkerState marker = markerStates[idx];
-                markerPositions.Add(marker.Position);
 
-                if (marker.Id == backID)
+                //if (marker.Id == backID)
+                //{
+                //    ObackPos = marker.Position;
+                //    
+                //}
+                //if (marker.Id == frontID)
+                //{
+                //    OfrontPos = marker.Position;
+                //}
+                if (marker.Position.z < minz)
                 {
+                    minz = marker.Position.z;
                     ObackPos = marker.Position;
-                    
                 }
-                if (marker.Id == frontID)
+                if (marker.Position.z > maxz)
                 {
+                    maxz = marker.Position.z;
                     OfrontPos = marker.Position;
-                    optiY = frontPos.y;
                 }
             }
-            OavgPosition = Experiment.AverageVec(markerPositions); //average position of all markers
-            markerPositions.Clear();
 
+            //SET CUE POSITION
             float[,] frontMatrix = new float[,] { { OfrontPos.x }, { OfrontPos.z }, { 1 } };
             float[,] backMatrix = new float[,] { { ObackPos.x }, { ObackPos.z }, { 1 } };
-            float[,] avgMatrix = new float[,] { { OavgPosition.x }, { OavgPosition.z }, { 1 } };
-            float[,] transformFront = Experiment.MultiplyMatrix(Experiment.M, frontMatrix);
-            float[,] transformBack = Experiment.MultiplyMatrix(Experiment.M, backMatrix);
-            float[,] avgU = Experiment.MultiplyMatrix(Experiment.M, avgMatrix);
-            backPos = new Vector3(transformBack[0, 0], ObackPos.y * Experiment.yratio, transformBack[1, 0]);
-            frontPos = new Vector3(transformFront[0, 0], OfrontPos.y * Experiment.yratio, transformFront[1, 0]);
+            float[,] frontU = Experiment.MultiplyMatrix(Experiment.M, frontMatrix);
+            float[,] backU = Experiment.MultiplyMatrix(Experiment.M, backMatrix);
+            Vector3 backPos = new Vector3(backU[0, 0], ObackPos.y * Experiment.yratio, backU[1, 0]);
+            Vector3 frontPos = new Vector3(frontU[0, 0], OfrontPos.y * Experiment.yratio, frontU[1, 0]);
 
-            avgPos = new Vector3(avgU[0, 0], OavgPosition.y * Experiment.yratio, avgU[1, 0]);
-            avgPos = new Vector3((float)System.Math.Round(avgPos.x, 1), (float)System.Math.Round(avgPos.y, 1), (float)System.Math.Round(avgPos.z, 1));
-            Vector3 direction = frontPos - backPos;
-
-            //cuePos = frontPos;
-            //cuePos = Experiment.corner3.position;
-            //cuePos = ObackPos;
-            //cuePos = backPos - Experiment.cuePositionWeight * direction;
-            if (ObackPos == new Vector3())
-            {
-                //cuePos = prevPos;
-                Debug.Log("lost track of back marker");
-            }
-
-            cuePos = markerToPosition(OfrontPos, ObackPos, OavgPosition);
-            //cuePos = cuePos + offset;
+            Vector3 direction = (frontPos - backPos).normalized;
+            cuePos = frontPos + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity"));
             
             //calculate velocity
             cueVelocity = (cuePos - prevPos) / Time.fixedDeltaTime;
@@ -196,55 +178,21 @@ public class OptitrackRigidBody : MonoBehaviour
 
             //move cue rigidbody to updated position
             Experiment.cueFront.transform.position = cuePos;
-            //Experiment.cueFront.transform.position = Experiment.corner4.position;
-            //get forward direction by lookng at forwrd position
-            //this.transform.rotation = Quaternion.LookRotation(OfrontPos - ObackPos) * Quaternion.Euler(90f, 0f, 0f);
-            Experiment.cueFront.transform.rotation = Quaternion.LookRotation(OfrontPos - ObackPos) * Quaternion.Euler(0f, 0f, 0f);
-            //Experiment.cueRB.transform.rotation = Quaternion.LookRotation(cuePos-backPos) * Quaternion.Euler(90f, 0f, 0f);
+            //get forward direction by lookng at forwrd position from actual optitrack position (could also do with transformed positions)
+            Experiment.cueFront.transform.rotation = Quaternion.LookRotation(frontPos - backPos) * Quaternion.Euler(0f, 0f, 0f);
 
-            //Debug.Log("back   : " + ObackPos.ToString("f4"));
-            //Debug.Log("front   : " + OfrontPos.ToString("f4"));
-            //Debug.Log("cuepos   : " + cuePos.ToString("f4"));
-            //Debug.Log(Experiment.corner3.position.ToString("f4"));
-            //Debug.Log("offset  : " + (cuePos - Experiment.corner3.position).ToString("f4"));
-
+            //testing
+            //Debug.Log("Ofp    : " + OfrontPos.ToString("f4"));
+            //Debug.Log("Obp    : " + ObackPos.ToString("f4"));
         }
     }
 
-    public static Vector3 markerToPosition(Vector3 front, Vector3 back, Vector3 avg)
+    public static Vector3 markerToPosition(Vector3 front, Vector3 back)
     {
-        float[,] frontMatrix = new float[,] { { front.x }, { front.z }, { 1 } };
-        float[,] backMatrix = new float[,] { { back.x }, { back.z }, { 1 } };
-        float[,] avgMatrix = new float[,] { { avg.x }, { avg.z }, { 1 } };
-        float[,] frontU = Experiment.MultiplyMatrix(Experiment.M, frontMatrix);
-        float[,] backU = Experiment.MultiplyMatrix(Experiment.M, backMatrix);
-        float[,] avgU = Experiment.MultiplyMatrix(Experiment.M, avgMatrix);
-        Vector3 backPos = new Vector3(backU[0, 0], back.y * Experiment.yratio, backU[1, 0]);
-        Vector3 frontPos = new Vector3(frontU[0, 0], front.y * Experiment.yratio, frontU[1, 0]);
-
-        Vector3 avgPos = new Vector3(avgU[0, 0], avg.y * Experiment.yratio, avgU[1, 0]);
-        avgPos = new Vector3((float)System.Math.Round(avgPos.x, 2), (float)System.Math.Round(avgPos.y, 2), (float)System.Math.Round(avgPos.z, 2));
-
-        //For average position
-        //Vector3 direction = (frontPos - backPos).normalized;
-        //float alpha = PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity") + (frontPos - avgPos).magnitude; //from average position
-        //Vector3 cuePosition = avgPos + alpha * direction;
-
-        //For back Marker
-        //Vector3 direction = (front - back).normalized;
-        //Vector3 OcuePos = back - (direction * PlayerPrefs.GetFloat("marker3_base") * PlayerPrefs.GetFloat("cmToUnity"));
-        //float[,] OposMatrix = new float[,] { { OcuePos.x }, { OcuePos.z }, { 1 } };
-        //float[,] posMatrix = Experiment.MultiplyMatrix(Experiment.M, OposMatrix);
-        //Vector3 cuePosition = new Vector3(posMatrix[0, 0], OcuePos.y * Experiment.yratio, posMatrix[1, 0]);
-
+        
         //For front Marker
         Vector3 direction = (front - back).normalized;
-        //Vector3 OcuePos = front - (direction * (PlayerPrefs.GetFloat("marker3_base") + PlayerPrefs.GetFloat("marker2_marker3") + PlayerPrefs.GetFloat("marker1_marker2")) * PlayerPrefs.GetFloat("cmToUnity"));
-        Vector3 OcuePos = front + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity"));
-        float[,] OposMatrix = new float[,] { { OcuePos.x }, { OcuePos.z }, { 1 } };
-        float[,] posMatrix = Experiment.MultiplyMatrix(Experiment.M, OposMatrix);
-        //Vector3 cuePosition = new Vector3(posMatrix[0, 0], OcuePos.y * Experiment.yratio, posMatrix[1, 0]);
-        Vector3 cuePosition = frontPos + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity"));
+        Vector3 cuePosition = front + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity"));
 
         return cuePosition;
     }
@@ -335,11 +283,6 @@ public class OptitrackRigidBody : MonoBehaviour
                 float optiPocketDist = (avgC1 - avgC2).magnitude;
                 float unityPocketDist = (Experiment.corner1.position - Experiment.corner2.position).magnitude;
 
-                //Debug.Log("opti pocket dist : " + optiPocketDist.ToString("f4"));
-                //Debug.Log("unity pocket dist : " + unityPocketDist.ToString("f4"));
-                //Debug.Log("hmd pos : " + Experiment.hmd.position.ToString("f4"));
-                //Experiment.setEnvPosition();
-
                 test = false;
             }
         }
@@ -416,6 +359,7 @@ public class OptitrackRigidBody : MonoBehaviour
                 {
                     minz = pos.z;
                     idback = mID;
+                    
                 }
 
             }
