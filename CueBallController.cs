@@ -54,15 +54,26 @@ public class CueBallController : MonoBehaviour
         if (col.gameObject.name == "RedBall")
         {
             Experiment.cueball_redball = true;
+            Vector3 vel = Experiment.cueballRB.velocity;
+            Vector3 direction = vel.normalized;
+            Vector3 contactPoint = col.contacts[0].point;
+            //rb.AddForceAtPosition(0.5f * vel, contactPoint, ForceMode.Impulse);
 
-            //For second experimental condition, the visiual feedback is removed and the balls disappear from the environmnet after contact is made
+            //For third experimental condition, the visiual feedback is removed and the balls disappear from the environmnet after contact is made
             if (Experiment.experiment == 3)
             {
                 StartCoroutine(Dissappear());
             }
         }
-        
+    }
 
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.tag == "walls")
+        {
+            Vector3 vel = Experiment.cueballRB.velocity;
+            Experiment.cueballRB.velocity = new Vector3(vel.x, 0, vel.z);
+        }
     }
 
     //Function to make cue ball and red ball disappear from the scene in the environment

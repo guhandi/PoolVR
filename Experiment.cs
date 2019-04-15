@@ -43,19 +43,21 @@ public class Experiment : MonoBehaviour
     public static Transform cueBack; //base of cue stick
     public static Transform table; //table object
     public static Transform env; //environment (Scaler) object
-    public static Transform corner1; //unity pocket 1
-    public static Transform corner2; //unity pocket 2
-    public static Transform corner3; //unity pocket 3
-    public static Transform corner4; //unity pocket 4
-    public static float xmin;
-    public static float xmax;
-    public static float zmin;
-    public static float zmax;
+    public static Transform corner1; //unity pocket 1 - front left
+    public static Transform corner2; //unity pocket 2 - middle left
+    public static Transform corner3; //unity pocket 3 - front right
+    public static Transform corner4; //unity pocket 4 - back right
+    public static float xmin; //left edge postion
+    public static float xmax; //right edge position
+    public static float zmin; //back edge position
+    public static float zmax; //front edge position
     public static Vector3 cueballstart; //cue ball starting position
     public static Vector3 redballstart; //red ball starting position
     public static Vector3 cuestart; //cue stick starting position
     public static MeshRenderer cueMesh; //cue ball visible mesh
     public static MeshRenderer redballMesh; //red ball visible mesh
+    public static MeshRenderer cuestickMesh; //cue visible mesh
+    public static SphereCollider cueballCollide;
     public SteamVR_TrackedObject ctrl1; //left vive controller
     public SteamVR_TrackedObject ctrl2; //right vive controller
     public static bool cue_cueball; //cue - cueball collision
@@ -78,15 +80,16 @@ public class Experiment : MonoBehaviour
     private bool test;
 
     //testing
-    
+
 
     //************************************************************************ */
     // Use this for initialization
     void Start()
     {
+        
         //Initialize game variables
         initGameVariables();
-        
+
         //Calibrate environments
         startCalibration();
         setTableBoundary();
@@ -94,10 +97,12 @@ public class Experiment : MonoBehaviour
         //Data stuff
         csv = new StringBuilder(); //file object to write to
         dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test.txt"; //path directory to write text file to
-        startInfo(); //write subject data to file
+        startInfo(); //write variable titles to file
 
         //testing
         test = true;
+        PlayerPrefs.SetFloat("tip_marker1", 37.4f); //centimeters
+        PlayerPrefs.SetFloat("marker3_base", 41.5f); //centimeters
 
 
     }
@@ -120,7 +125,7 @@ public class Experiment : MonoBehaviour
             restartScene();
         }
 
-        //CALIBRATION
+        //DO CALIBRATION
         if (experiment == 0)
         {
             if (count > 500 && !isEnvSet)
@@ -141,22 +146,21 @@ public class Experiment : MonoBehaviour
 
         //Game Objects
         cueRB = GameObject.Find("Cue").GetComponent<Rigidbody>(); //physics rigidbody of cue
-        cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
         redballRB = GameObject.Find("RedBall").GetComponent<Rigidbody>(); //physics rigidbody of red ball
         cueballRB = GameObject.Find("CueBall").GetComponent<Rigidbody>(); //physics rigidbody of cue ball
-        cueTip = GameObject.FindGameObjectWithTag("cuetip").GetComponent<Transform>();
-        cueBack = GameObject.Find("CueBack").GetComponent<Transform>();
-        cueFront = GameObject.Find("CueFront").GetComponent<Rigidbody>();
-        cueFront.constraints = RigidbodyConstraints.FreezeRotation;
-        cueFront.constraints = RigidbodyConstraints.FreezePosition;
-        env = GameObject.Find("Scaler").GetComponent<Transform>();
-        table = GameObject.FindGameObjectWithTag("table").GetComponent<Transform>();
-        cueMesh = GameObject.Find("Cue").GetComponent<MeshRenderer>(); ; //visible mesh of the cue object
+        cueTip = GameObject.FindGameObjectWithTag("cuetip").GetComponent<Transform>(); //child of cue stick - used for collision
+        cueBack = GameObject.Find("CueBack").GetComponent<Transform>(); //child of cue stick - used for cue length
+        cueFront = GameObject.Find("CueFront").GetComponent<Rigidbody>(); //parent of cue stick - used to reference the front for position
+        cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
+        cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze position
+        cueFront.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
+        cueFront.constraints = RigidbodyConstraints.FreezePosition; //freeze position of the cue stick (fixed bug of cue randomly moving)
+        env = GameObject.Find("Scaler").GetComponent<Transform>(); //object in which all gameobjects are stored for scaling purposes
+        table = GameObject.FindGameObjectWithTag("table").GetComponent<Transform>(); //pool table
+        cueMesh = GameObject.Find("CueBall").GetComponent<MeshRenderer>(); //visible mesh of the cue ball object
         redballMesh = GameObject.Find("RedBall").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
-
-        //angular drag
-        cueballRB.angularDrag = angularDrag;
-        redballRB.angularDrag = angularDrag;
+        cuestickMesh = GameObject.Find("Cue").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
+        cueballCollide = GameObject.Find("CueBall").GetComponent<SphereCollider>();
 
         //booleans
         cue_cueball = false;
@@ -176,7 +180,7 @@ public class Experiment : MonoBehaviour
 
         //testing
 
-        
+
     }
 
     public static void startCalibration()
@@ -191,7 +195,8 @@ public class Experiment : MonoBehaviour
 
         //Actually set calibration variables to respective values
         envScale = PlayerPrefs.GetFloat("scalingRatio");
-        shiftEnvironemnt = getEnvShift(); //shift VR environemnt to match real life objects
+        float yoffset_cm = 3.8f;
+        shiftEnvironemnt = getEnvShift() - new Vector3(-0.5f, yoffset_cm * PlayerPrefs.GetFloat("cmToUnity"), -0.25f); //shift VR environemnt to match real life objects
         M = getTransformationMatrix();
         env.localScale = envScale * (new Vector3(1, 1, 1));
         env.position = shiftEnvironemnt;
@@ -203,7 +208,8 @@ public class Experiment : MonoBehaviour
         poolTableWidth = PlayerPrefs.GetFloat("poolTableWidth"); //unity
         realWidth = PlayerPrefs.GetFloat("realWidth"); //unity
         //yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("optitrackTableHeight"); //height sclaing ratio between environemnts
-        yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("Ocuey");
+        //yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("Ocuey");
+        yratio = corner1.position.y / PlayerPrefs.GetFloat("Ocuey");
 
         //store object start positions
         cueballstart = cueballRB.position;
@@ -214,7 +220,7 @@ public class Experiment : MonoBehaviour
 
 
     }
-   
+
     //place unity object at corner 3 (close right) position
     public static void setEnvPosition(Vector3 objectPos)
     {
@@ -250,7 +256,7 @@ public class Experiment : MonoBehaviour
         Debug.Log(unityLength.ToString("f4"));
         Debug.Log(PlayerPrefs.GetFloat("cmToUnity").ToString("f4"));
         float cueScale = desiredLength / unityLength;
-        
+
         //float cueScale = 0.75f;
         Debug.Log("scale = " + cueScale.ToString("f4"));
         cueFront.transform.localScale = cueFront.transform.localScale * cueScale;
@@ -262,13 +268,12 @@ public class Experiment : MonoBehaviour
         float d = 1.25f;
         cueballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
         redballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
-
     }
 
     //Get table limits
     public void setTableBoundary()
     {
-        float d = 1f;
+        float d = 0.2f;
         xmin = corner1.transform.position.x - d;
         xmax = corner3.transform.position.x + d;
         zmin = corner1.transform.position.z - d;
@@ -308,7 +313,7 @@ public class Experiment : MonoBehaviour
         cueFront.constraints = RigidbodyConstraints.FreezePosition;
 
         //Load starting scene again
-        SceneManager.LoadScene("Main");
+        //SceneManager.LoadScene("Main");
     }
 
     //Function to set Rigidbody rb velocity to zero
@@ -479,7 +484,7 @@ public class Experiment : MonoBehaviour
         float[,] tableOptiPoints = new float[,] { { o1x, o2x, o3x }, { o1z, o2z, o3z }, { 1f, 1f, 1f } }; //matrix of points from the Optitrack tracked markers from the pool table pockets
         float[,] tableUnityPoints = new float[,] { { u1x, u2x, u3x }, { u1z, u2z, u3z }, { 1f, 1f, 1f } }; //pocket positions in Unity
         float[,] trans = MultiplyMatrix(tableUnityPoints, inverseMat(tableOptiPoints)); //transformation matrix (Xu,Zu,1) = M * (Xo,Zo,1)
-        
+
         return trans;
 
     }
@@ -509,13 +514,9 @@ public class Experiment : MonoBehaviour
         PlayerPrefs.SetFloat("optitrackTableHeight", 1.585f);
         PlayerPrefs.SetFloat("unityCueLength", 1.3425f);
         PlayerPrefs.SetFloat("realCueLength", 122f); //centimeters
-        PlayerPrefs.SetFloat("tip_marker1", 35f); //centimeters
-        PlayerPrefs.SetFloat("marker1_marker2", 32.7f); //centimeters
-        PlayerPrefs.SetFloat("marker2_marker3", 33.5f); //centimeters
-        PlayerPrefs.SetFloat("marker3_base", 22f); //centimeters
+        PlayerPrefs.SetFloat("tip_marker1", 37.4f); //centimeters
+        PlayerPrefs.SetFloat("marker3_base", 41.5f); //centimeters
         PlayerPrefs.SetFloat("yratio", 1f);
-        PlayerPrefs.SetFloat("frontWeight", 0.05f); //weight of cue towards front marker
-        PlayerPrefs.SetFloat("backWeight", 0.95f); //weight of cue towards back marker
         PlayerPrefs.SetFloat("cmToUnity", 1f);
         PlayerPrefs.SetFloat("ballRadius", 2.5f); //radius of balls in cm
 

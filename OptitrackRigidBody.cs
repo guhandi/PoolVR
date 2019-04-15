@@ -1,9 +1,10 @@
 ﻿//======================================================================================================
-// Copyright 2016, NaturalPoint Inc.
+// 2016, NaturalPoint Inc.
 //======================================================================================================
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 //A class that streams data from an Optitrack Motiv rigidbody object to control the cue stick in the Unity environment
@@ -27,8 +28,10 @@ public class OptitrackRigidBody : MonoBehaviour
     private float[,] transformFront;
     private float[,] transformBack;
 
-    private int backID;
-    private int frontID;
+    private int backID1;
+    private int backID2;
+    private int frontID1;
+    private int frontID2;
 
     private int corner1ID; //marker ID at corner 1 (for calibration)
     private int corner2ID; //marker ID at corner 2 (for calibration)
@@ -73,15 +76,15 @@ public class OptitrackRigidBody : MonoBehaviour
         C2 = new List<Vector3>();
         C3 = new List<Vector3>();
 
-        if (markerIDs)
+        if (Experiment.experiment == 0 && markerIDs)
         {
-            getMarkerId();
+            getCalMarkerId();
         }
-        
-        
+
+
 
         test = true; //for calibration
-        
+
     }
 
 
@@ -116,6 +119,10 @@ public class OptitrackRigidBody : MonoBehaviour
         {
             UpdatePose();
         }
+        if (count == 200)
+        {
+            //getCueMarkers();
+        }
 
     }
 
@@ -126,38 +133,65 @@ public class OptitrackRigidBody : MonoBehaviour
         Vector3 ObackPos = new Vector3();
         OptitrackRigidBodyState rbState = StreamingClient.GetLatestRigidBodyState(RigidBodyId); //access rigidbody
         List<OptitrackMarkerState> markerStates = new List<OptitrackMarkerState>(); //initialize list of marker objects from rigidbody
+        List<Vector3> markerPositions = new List<Vector3>();
+
 
         if (rbState != null)
         {
             //Get marker positions
             markerStates = StreamingClient.GetLatestMarkerStates(); //get objects of all markers from rigidbody
-            //go through all markers and set front/back positions to relevant marker positions
-            float maxz = -1000f;
-            float minz = 1000f;
+            
+            //if not all markers are tracked, make cue stick invisible
+            if (markerStates.Count != 3)
+            {
+                Experiment.cuestickMesh.enabled = false;
+                return;
+            }
+            else
+            {
+                Experiment.cuestickMesh.enabled = true;
+            }
+
+            Vector3 f1 = new Vector3();
+            Vector3 f2 = new Vector3();
+            Vector3 b1 = new Vector3();
+            Vector3 b2 = new Vector3();
+            //Loop through markers
             for (int idx = 0; idx < markerStates.Count; idx++)
             {
                 OptitrackMarkerState marker = markerStates[idx];
+                int markerID = marker.Id;
+                Vector3 pos = marker.Position;
+                markerPositions.Add(marker.Position);
 
-                //if (marker.Id == backID)
+                //if (markerID == frontID1)
                 //{
-                //    ObackPos = marker.Position;
-                //    
+                //    f1 = pos;
                 //}
-                //if (marker.Id == frontID)
+                //else if (markerID == frontID2)
                 //{
-                //    OfrontPos = marker.Position;
+                //    f2 = pos;
                 //}
-                if (marker.Position.z < minz)
-                {
-                    minz = marker.Position.z;
-                    ObackPos = marker.Position;
-                }
-                if (marker.Position.z > maxz)
-                {
-                    maxz = marker.Position.z;
-                    OfrontPos = marker.Position;
-                }
+                //else if (markerID == backID1)
+                //{
+                //    b1 = pos;
+                //}
+                //else if (markerID == backID2)
+                //{
+                //    b2 = pos;
+                //}
+
+
             }
+            //OfrontPos = (f1 + f2) / 2;
+            //ObackPos = (b1 + b2) / 2;
+            IEnumerable<Vector3> sorted = markerPositions.OrderBy(v => v.z);
+            //OfrontPos = (sorted.ElementAt(3) + sorted.ElementAt(2)) / 2;
+            //ObackPos = (sorted.ElementAt(1) + sorted.ElementAt(0)) / 2;
+            OfrontPos = (sorted.ElementAt(1) + sorted.ElementAt(2)) / 2;
+            ObackPos = sorted.ElementAt(0) - new Vector3(0f, 1f * PlayerPrefs.GetFloat("cmToUnity") / PlayerPrefs.GetFloat("optiToUnity"), 0f);
+
+
 
             //SET CUE POSITION
             float[,] frontMatrix = new float[,] { { OfrontPos.x }, { OfrontPos.z }, { 1 } };
@@ -169,7 +203,11 @@ public class OptitrackRigidBody : MonoBehaviour
 
             Vector3 direction = (frontPos - backPos).normalized;
             cuePos = frontPos + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity"));
-            
+            if (cuePos.y < Experiment.corner1.position.y)
+            {
+                cuePos = new Vector3(cuePos.x, Experiment.corner1.position.y, cuePos.z);
+            }
+
             //calculate velocity
             cueVelocity = (cuePos - prevPos) / Time.fixedDeltaTime;
             VelocityList.Add(cueVelocity);
@@ -181,15 +219,12 @@ public class OptitrackRigidBody : MonoBehaviour
             //get forward direction by lookng at forwrd position from actual optitrack position (could also do with transformed positions)
             Experiment.cueFront.transform.rotation = Quaternion.LookRotation(frontPos - backPos) * Quaternion.Euler(0f, 0f, 0f);
 
-            //testing
-            //Debug.Log("Ofp    : " + OfrontPos.ToString("f4"));
-            //Debug.Log("Obp    : " + ObackPos.ToString("f4"));
         }
     }
 
     public static Vector3 markerToPosition(Vector3 front, Vector3 back)
     {
-        
+
         //For front Marker
         Vector3 direction = (front - back).normalized;
         Vector3 cuePosition = front + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity"));
@@ -233,7 +268,7 @@ public class OptitrackRigidBody : MonoBehaviour
             Vector3 avgC2 = Experiment.AverageVec(C2);
             Vector3 avgC3 = Experiment.AverageVec(C3);
 
-            //derive C2
+            //derive C2 based on equalateral right triangle 
             float length = (avgC3 - avgC1).magnitude;
             Vector3 direction = Quaternion.Euler(0, -90f, 0) * (avgC3 - avgC1).normalized;
             Vector3 derivedC2 = avgC1 + length * direction;
@@ -260,7 +295,7 @@ public class OptitrackRigidBody : MonoBehaviour
             PlayerPrefs.SetFloat("Ocorner3y", avgC3.y);
             PlayerPrefs.SetFloat("Ocorner3z", avgC3.z);
 
-            //Cue ball starting position
+            //Cue ball starting position in unity
             PlayerPrefs.SetFloat("Ocuex", avgC2.x);
             PlayerPrefs.SetFloat("Ocuey", avgC2.y);
             PlayerPrefs.SetFloat("Ocuez", avgC2.z);
@@ -280,99 +315,86 @@ public class OptitrackRigidBody : MonoBehaviour
                 Debug.Log("corner2" + Experiment.corner2.position.ToString("f4"));
                 Debug.Log("corner3" + Experiment.corner3.position.ToString("f4"));
 
-                float optiPocketDist = (avgC1 - avgC2).magnitude;
-                float unityPocketDist = (Experiment.corner1.position - Experiment.corner2.position).magnitude;
+                float optiPocketDist = (avgC1 - avgC3).magnitude;
+                float unityPocketDist = (Experiment.corner1.position - Experiment.corner3.position).magnitude;
+                PlayerPrefs.SetFloat("optiToUnity", unityPocketDist / optiPocketDist);
 
                 test = false;
             }
         }
     }
 
-    //Function to get IDs of morkers in corresponding pockets for calibration
-    private void getMarkerId()
+    //Function to get IDs of markers in corresponding pockets for calibration
+    private void getCalMarkerId()
     {
         OptitrackRigidBodyState rbState = StreamingClient.GetLatestRigidBodyState(RigidBodyId); //access rigidbody
         List<OptitrackMarkerState> markers = new List<OptitrackMarkerState>(); //initialize list of marker objects from rigidbody
         markers = StreamingClient.GetLatestMarkerStates(); //get objects of all markers from rigidbody
         List<int> idList = new List<int>();
 
-        //For Calibrattion
-        if (Experiment.experiment == 0)
+        float maxz = -1000f;
+        int idz = -1;
+        float maxx = -1000f;
+        int idx = -1;
+        for (int j = 0; j < markers.Count; j++)
         {
 
-            float maxz = -1000f;
-            int idz = -1;
-            float maxx = -1000f;
-            int idx = -1;
-            for (int j = 0; j < markers.Count; j++)
+            OptitrackMarkerState m = markers[j];
+            int mID = m.Id;
+            Vector3 pos = m.Position;
+            idList.Add(mID);
+
+            // one corner is placed further to the positive z (right)
+            if (pos.x > maxx)
             {
-
-                OptitrackMarkerState m = markers[j];
-                int mID = m.Id;
-                Vector3 pos = m.Position;
-                idList.Add(mID);
-
-                // one corner is placed further to the positive z (right)
-                if (pos.x > maxx)
-                {
-                    maxx = pos.x;
-                    idx = mID;
-                }
-                // one marker is placed further to the negative x (toward end of table)
-                if (pos.z > maxz)
-                {
-                    maxz = pos.z;
-                    idz = mID;
-                }
+                maxx = pos.x;
+                idx = mID;
             }
-            idList.Remove(idz);
-            idList.Remove(idx);
-            //store marker IDs
-            corner1ID = idList[0];
-            corner2ID = idz;
-            corner3ID = idx;
+            // one marker is placed further to the negative x (toward end of table)
+            if (pos.z > maxz)
+            {
+                maxz = pos.z;
+                idz = mID;
+            }
         }
+        idList.Remove(idz);
+        idList.Remove(idx);
 
-        //For cue stick
-        else
+        //store marker IDs
+        corner1ID = idList[0]; //by elimination we get the 3rd corner 
+        corner2ID = idz;
+        corner3ID = idx;
+    }
+
+    //For cue stick
+    private void getCueMarkers()
+    {
+        OptitrackRigidBodyState rbState = StreamingClient.GetLatestRigidBodyState(RigidBodyId); //access rigidbody
+        List<OptitrackMarkerState> markers = new List<OptitrackMarkerState>(); //initialize list of marker objects from rigidbody
+        markers = StreamingClient.GetLatestMarkerStates(); //get objects of all markers from rigidbody
+
+        SortedList<float, int> sortedMarkers = new SortedList<float, int>();
+        for (int j = 0; j < markers.Count; j++)
         {
-            float maxz = -1000f;
-            int idback = -1;
-            float minz = 1000f;
-            int idfront = -1;
-            for (int j = 0; j < markers.Count; j++)
-            {
+            OptitrackMarkerState m = markers[j];
+            int mID = m.Id;
+            Vector3 pos = m.Position;
+            Debug.Log(pos.ToString("f4"));
+            float zpos = pos.z;
 
-                OptitrackMarkerState m = markers[j];
-                int mID = m.Id;
-                Vector3 pos = m.Position;
-                idList.Add(mID);
-
-                // one corner is placed further to the positive z (front)
-                if (pos.z > maxz)
-                {
-                    maxz = pos.z;
-                    idfront = mID;
-                }
-                // one marker is placed further to the negative z (back)
-                if (pos.z < minz)
-                {
-                    minz = pos.z;
-                    idback = mID;
-                    
-                }
-
-            }
-            frontID = idfront;
-            backID = idback;
-            markerIDs = false;
+            sortedMarkers.Add(zpos, mID);
 
         }
+        backID1 = sortedMarkers.Values[0];
+        backID2 = sortedMarkers.Values[1];
+        frontID1 = sortedMarkers.Values[2];
+        frontID2 = sortedMarkers.Values[3];
+        markerIDs = false;
+
     }
 
 
-    //Method that is called at any gameobject collision with the cue stick
-    void OnCollisionEnter(Collision col)
+    private void OnCollisionEnter(Collision col)
     {
         //If cue ball doesn't collide with any rigidbody do nothing
         Rigidbody rb = col.gameObject.GetComponent<Rigidbody>();
@@ -384,29 +406,72 @@ public class OptitrackRigidBody : MonoBehaviour
         //If cue stick collides with the cue ball
         if (col.gameObject.name == "CueBall")
         {
-            //Get average of contact points
-            int numContacts = col.contacts.Length;
-            float x = 0f;
-            float y = 0f;
-            float z = 0f;
-            foreach (ContactPoint contact in col.contacts)
-            {
-                x += contact.point.x;
-                y += contact.point.y;
-                z += contact.point.z;
-            }
-            Vector3 contactPos = new Vector3(x / numContacts, y / numContacts, z / numContacts); //average position of contact between cue stick and cue ball
-            Vector3 forceDirection = (contactPos - transform.position).normalized; //direction of applied force = contact position - cue stick position
-            float scaleForce = Experiment.scaleForce; //scaling factor of force direction
-            Vector3 cueForce = forceDirection * Math.Abs(avgVelocity.magnitude) * scaleForce; //applied force to cue weighted by scaling factor & velocity and applied in forceDirection
-            //Vector3 f = new Vector3(5f, 0f, 200f);
-            //rb.AddForce(f);
-            rb.AddForce(cueForce); //apply force to cue ball
+            
+            float minvel = 0.01f;
+            float maxvel = 3f;
+            float minforce = 0f;
+            float maxforce = 0.5f;
+            Vector3 direction = avgVelocity.normalized;
+            Vector3 contactPoint = col.contacts[0].point;
+            float mag = avgVelocity.magnitude;
+            float scale = (mag - minvel) / (maxvel - minvel);
+            Vector3 forceVec =  maxforce * scale * direction;
+            //Vector3 forceVec = scale * avgVelocity;
 
+            //rb.AddForce(scale * forceVec, ForceMode.Impulse);
+            rb.AddForceAtPosition(forceVec, contactPoint, ForceMode.Impulse);
+
+            Debug.Log("force app  :  " + forceVec.ToString("f4"));
+            Debug.Log("velocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
+            Debug.Log("mag   :  " + mag.ToString("f4"));
+            Debug.Log("cuevelocity   :  " + cueVelocity.ToString("f4"));
         }
     }
 
-    //Calculate average of last n vectors in list
+
+    //Method that is called at any gameobject collision with the cue stick
+    void OnCollisionStay(Collision col)
+    {
+        return;
+        //float scale = 0.05f;
+        //If cue ball doesn't collide with any rigidbody do nothing
+        Rigidbody rb = col.gameObject.GetComponent<Rigidbody>();
+        if (!rb)
+        {
+            //return;
+        }
+
+        //If cue stick collides with the cue ball
+        if (col.gameObject.name == "CueBall")
+        {
+            float minvel = 0.1f;
+            float maxvel = 5f;
+            float minforce = 0f;
+            float maxforce = 0.25f;
+
+
+            foreach (ContactPoint contact in col.contacts)
+            {
+                Vector3 contactPoint = contact.point;
+                Vector3 tforce = new Vector3(0f, 0f, 0.3f);
+                Vector3 direction = avgVelocity.normalized;
+                float mag = avgVelocity.magnitude;
+                float scale = (mag - minvel) / (maxvel - minvel);
+                Vector3 forceVec = scale * maxforce * direction;
+
+                //rb.AddForceAtPosition(scale * forceVec, contactPoint, ForceMode.Impulse);
+                rb.AddForce(scale * forceVec, ForceMode.Force);
+                //rb.AddForceAtPosition(tforce, contactPoint, ForceMode.Impulse);
+                //rb.AddForce(numContacts * scale*forceVec, ForceMode.Impulse);
+                Debug.Log("contact point  = " + contactPoint.ToString("f4"));
+                Debug.Log("force app  :  " + (scale * forceVec).ToString("f4"));
+                Debug.Log("velocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
+
+            }
+        }
+    }
+
+    //Helper method to calculate average of last n vectors in list
     private Vector3 AverageVelocity(List<Vector3> vlist, int numavg)
     {
         Vector3 sumvel = new Vector3(0f, 0f, 0f);
@@ -415,7 +480,6 @@ public class OptitrackRigidBody : MonoBehaviour
             sumvel = sumvel + vlist[idx];
         }
         return sumvel / numavg;
-
     }
 
 }
