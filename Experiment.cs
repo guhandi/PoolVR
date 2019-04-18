@@ -57,6 +57,8 @@ public class Experiment : MonoBehaviour
     public static MeshRenderer cueMesh; //cue ball visible mesh
     public static MeshRenderer redballMesh; //red ball visible mesh
     public static MeshRenderer cuestickMesh; //cue visible mesh
+    public static MeshCollider cuestickCollide;
+    public static CapsuleCollider cuetipCollide;
     public static SphereCollider cueballCollide;
     public SteamVR_TrackedObject ctrl1; //left vive controller
     public SteamVR_TrackedObject ctrl2; //right vive controller
@@ -80,6 +82,7 @@ public class Experiment : MonoBehaviour
     private bool test;
 
     //testing
+    
 
 
     //************************************************************************ */
@@ -89,6 +92,7 @@ public class Experiment : MonoBehaviour
         
         //Initialize game variables
         initGameVariables();
+        
 
         //Calibrate environments
         startCalibration();
@@ -101,8 +105,6 @@ public class Experiment : MonoBehaviour
 
         //testing
         test = true;
-        PlayerPrefs.SetFloat("tip_marker1", 37.4f); //centimeters
-        PlayerPrefs.SetFloat("marker3_base", 41.5f); //centimeters
 
 
     }
@@ -131,13 +133,19 @@ public class Experiment : MonoBehaviour
             if (count > 500 && !isEnvSet)
             {
                 setScale(realWidth, ctrl1.transform.position, ctrl2.transform.position);
-                setEnvPosition(ctrl2.transform.position);
+                Vector3 calpos = ctrl1.transform.position;
+                if (ctrl2.transform.position.x > calpos.x)
+                {
+                    calpos = ctrl2.transform.position;
+                }
+                setEnvPosition(calpos);
                 isEnvSet = true;
 
             }
         }
 
         //testing
+        
     }
 
     //************************************************************************ */
@@ -160,6 +168,8 @@ public class Experiment : MonoBehaviour
         cueMesh = GameObject.Find("CueBall").GetComponent<MeshRenderer>(); //visible mesh of the cue ball object
         redballMesh = GameObject.Find("RedBall").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
         cuestickMesh = GameObject.Find("Cue").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
+        cuestickCollide = GameObject.Find("Cue").GetComponent<MeshCollider>();
+        cuetipCollide = GameObject.Find("CueTip").GetComponent<CapsuleCollider>();
         cueballCollide = GameObject.Find("CueBall").GetComponent<SphereCollider>();
 
         //booleans
@@ -179,9 +189,12 @@ public class Experiment : MonoBehaviour
         corner4 = GameObject.Find("Corner4").GetComponent<Transform>();
 
         //testing
+        
 
 
     }
+
+    
 
     public static void startCalibration()
     {
@@ -196,7 +209,7 @@ public class Experiment : MonoBehaviour
         //Actually set calibration variables to respective values
         envScale = PlayerPrefs.GetFloat("scalingRatio");
         float yoffset_cm = 3.8f;
-        shiftEnvironemnt = getEnvShift() - new Vector3(-0.5f, yoffset_cm * PlayerPrefs.GetFloat("cmToUnity"), -0.25f); //shift VR environemnt to match real life objects
+        shiftEnvironemnt = getEnvShift() - new Vector3(0, yoffset_cm * PlayerPrefs.GetFloat("cmToUnity"), 0); //shift VR environemnt to match real life objects
         M = getTransformationMatrix();
         env.localScale = envScale * (new Vector3(1, 1, 1));
         env.position = shiftEnvironemnt;
@@ -217,6 +230,7 @@ public class Experiment : MonoBehaviour
         cuestart = cueRB.position;
 
         //Testing
+        
 
 
     }
@@ -253,21 +267,25 @@ public class Experiment : MonoBehaviour
         float realLength = PlayerPrefs.GetFloat("realCueLength");
         float unityLength = (cueBack.transform.position - cueTip.position).magnitude;
         float desiredLength = realLength * PlayerPrefs.GetFloat("cmToUnity");
-        Debug.Log(unityLength.ToString("f4"));
-        Debug.Log(PlayerPrefs.GetFloat("cmToUnity").ToString("f4"));
+        //Debug.Log(unityLength.ToString("f4"));
+        //Debug.Log(PlayerPrefs.GetFloat("cmToUnity").ToString("f4"));
         float cueScale = desiredLength / unityLength;
 
         //float cueScale = 0.75f;
-        Debug.Log("scale = " + cueScale.ToString("f4"));
+        //Debug.Log("scale = " + cueScale.ToString("f4"));
         cueFront.transform.localScale = cueFront.transform.localScale * cueScale;
+        Debug.Log("scale = " + cueFront.transform.localScale.ToString("f4"));
         PlayerPrefs.SetFloat("unityCueLength", (cueBack.transform.position - cueTip.position).magnitude);
     }
 
     public static void setBallSize()
     {
         float d = 1.25f;
+        float r = 0.45f;
         cueballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
         redballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
+        //Debug.Log(cueballRB.transform.localScale.ToString("f4"));
+        //cueballCollide.radius = r;
     }
 
     //Get table limits
@@ -405,8 +423,8 @@ public class Experiment : MonoBehaviour
     void storeData()
     {
         timestamp = Time.time.ToString("F4");
-        var cuepos = vecToStr(cueRB.position);
-        var cuevel = vecToStr(cueRB.velocity);
+        var cuepos = vecToStr(cueFront.position);
+        var cuevel = vecToStr(cueFront.velocity);
         var cueballpos = vecToStr(cueballRB.position);
         var cueballvel = vecToStr(cueballRB.velocity);
         var redballpos = vecToStr(redballRB.position);
@@ -455,6 +473,18 @@ public class Experiment : MonoBehaviour
         float offy = PlayerPrefs.GetFloat("ShiftEnvironemnt_y") + (3f * PlayerPrefs.GetFloat("cmToUnity"));
         float offz = PlayerPrefs.GetFloat("ShiftEnvironemnt_z");
         return new Vector3(offx, offy, offz);
+    }
+
+    public static Vector3 getCueballStart()
+    {
+        float x = PlayerPrefs.GetFloat("Ocuex"); 
+        float y = PlayerPrefs.GetFloat("Ocuex");
+        float z = PlayerPrefs.GetFloat("Ocuex");
+
+        float[,] OptiM = new float[,] { { x }, { z }, { 1 } };
+        float[,] UnityM = Experiment.MultiplyMatrix(Experiment.M, OptiM);
+        Vector3 pos = new Vector3(UnityM[0, 0], y * Experiment.yratio, UnityM[1, 0]);
+        return new Vector3(x, y, z);
     }
 
     public static float[,] getTransformationMatrix()
@@ -514,8 +544,9 @@ public class Experiment : MonoBehaviour
         PlayerPrefs.SetFloat("optitrackTableHeight", 1.585f);
         PlayerPrefs.SetFloat("unityCueLength", 1.3425f);
         PlayerPrefs.SetFloat("realCueLength", 122f); //centimeters
-        PlayerPrefs.SetFloat("tip_marker1", 37.4f); //centimeters
-        PlayerPrefs.SetFloat("marker3_base", 41.5f); //centimeters
+        PlayerPrefs.SetFloat("tip_marker1", 2.5f); //centimeters
+        PlayerPrefs.SetFloat("tip_marker2", 40f); //centimeters
+        PlayerPrefs.SetFloat("marker3_base", 92.5f); //centimeters
         PlayerPrefs.SetFloat("yratio", 1f);
         PlayerPrefs.SetFloat("cmToUnity", 1f);
         PlayerPrefs.SetFloat("ballRadius", 2.5f); //radius of balls in cm
