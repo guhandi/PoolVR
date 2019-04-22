@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 //A class that tracks the cue ball to perfom necessary game functions and to keep track of various game events
 public class CueBallController : MonoBehaviour
 {
-    private bool onAdapt;
+    public static bool onAdapt;
     // Use this for initialization
     void Start()
     {
@@ -14,7 +14,7 @@ public class CueBallController : MonoBehaviour
     }
 
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
         //Check if cue ball is hit out of table
         OutOfBounds();
@@ -73,6 +73,7 @@ public class CueBallController : MonoBehaviour
         {
             Vector3 vel = Experiment.cueballRB.velocity;
             Experiment.cueballRB.velocity = new Vector3(vel.x, 0, vel.z);
+            onAdapt = false;
         }
     }
 

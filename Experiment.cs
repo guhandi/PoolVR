@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.VR;
 using System.Text;
@@ -13,11 +14,13 @@ public class Experiment : MonoBehaviour
     //************************************************************************ */
     //Data Collection - trials, experiment type, number etc
     public static int experiment = 1; //0 = calibration, 1 = normal, 2 = adaptation, 3 = reward
-    public static Vector3 adaptationForce = new Vector3(-5f, 0, 0); //force applied to the cue ball for adaptation task
+    public static Vector3 adaptationForce = new Vector3(-0.1f, 0, 0); //force applied to the cue ball for adaptation task
     public static float waitTime = 0.5f; //time to wait before feedback change
+    public static int trialnum; //current trial number
     public static int totalTrials = 50; //trials per block
-    public static float angularDrag = 0.8f; //angular drag on the pool balls
-    public static float scaleForce = 200f; //scale velocity of cue to force trasnmitted to cue ball
+    public static bool nextTrial;
+    public Text trial;
+    private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test2.txt"; //path directory to write text file to
 
 
     //************************************************************************ */
@@ -26,8 +29,8 @@ public class Experiment : MonoBehaviour
     public static float envScale; //scaling VR environemnt to real object size
     public static float[,] M; // = MultiplyMatrix(tableUnityPoints, inverseMat(tableOptiPoints)) --> transformation matrix (Xu,Zu,1) = M * (Xo,Zo,1)
     public static float poolTableWidth; //unity
-    public static float realWidth; //unity
-    public static float yratio; //height sclaing ratio between environemnts
+    public static float realWidth; //cm
+    public static float yratio; //height sclaing ratio between environemnts (optiy * yratio = unityy)
     public static float cmToUnity; //cm * cmToUnity = Unity
     public static bool isEnvSet; //true if shiftEnvironment and envScale are calibrated
 
@@ -57,8 +60,6 @@ public class Experiment : MonoBehaviour
     public static MeshRenderer cueMesh; //cue ball visible mesh
     public static MeshRenderer redballMesh; //red ball visible mesh
     public static MeshRenderer cuestickMesh; //cue visible mesh
-    public static MeshCollider cuestickCollide;
-    public static CapsuleCollider cuetipCollide;
     public static SphereCollider cueballCollide;
     public SteamVR_TrackedObject ctrl1; //left vive controller
     public SteamVR_TrackedObject ctrl2; //right vive controller
@@ -70,9 +71,7 @@ public class Experiment : MonoBehaviour
 
     //************************************************************************ */
     private StringBuilder csv;
-    private string dir;
-    private string pth;
-
+    public float trialTime;
     private string timestamp;
     private string shottime;
     private string redballtime;
@@ -100,7 +99,6 @@ public class Experiment : MonoBehaviour
 
         //Data stuff
         csv = new StringBuilder(); //file object to write to
-        dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test.txt"; //path directory to write text file to
         startInfo(); //write variable titles to file
 
         //testing
@@ -110,24 +108,26 @@ public class Experiment : MonoBehaviour
     }
 
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
-
-        //write data to text file every ~1 second
-        count++;
-        storeData();
-        if (count % 100 == 0)
-        {
-            //File.AppendAllText(dir, csv.ToString());
-        }
 
         //restart scene after shot is taken and balls are stationary
         if (experiment != 0 && cue_cueball && (isSceneStill() || outOfBounds))
         {
             restartScene();
+            trialTime = 0f;
+            trialnum = trialnum + 1;
+        }
+
+        storeData();
+        if (nextTrial)
+        {
+            
+            trial.text = "Trial : " + trialnum;
         }
 
         //DO CALIBRATION
+        count++;
         if (experiment == 0)
         {
             if (count > 500 && !isEnvSet)
@@ -149,28 +149,26 @@ public class Experiment : MonoBehaviour
     }
 
     //************************************************************************ */
-    public static void initGameVariables()
+    public void initGameVariables()
     {
 
         //Game Objects
-        cueRB = GameObject.Find("Cue").GetComponent<Rigidbody>(); //physics rigidbody of cue
-        redballRB = GameObject.Find("RedBall").GetComponent<Rigidbody>(); //physics rigidbody of red ball
-        cueballRB = GameObject.Find("CueBall").GetComponent<Rigidbody>(); //physics rigidbody of cue ball
+        cueRB = GameObject.FindGameObjectWithTag("cue").GetComponent<Rigidbody>(); //physics rigidbody of cue
+        redballRB = GameObject.FindGameObjectWithTag("redball").GetComponent<Rigidbody>(); //physics rigidbody of red ball
+        cueballRB = GameObject.FindGameObjectWithTag("cueball").GetComponent<Rigidbody>(); //physics rigidbody of cue ball
         cueTip = GameObject.FindGameObjectWithTag("cuetip").GetComponent<Transform>(); //child of cue stick - used for collision
-        cueBack = GameObject.Find("CueBack").GetComponent<Transform>(); //child of cue stick - used for cue length
-        cueFront = GameObject.Find("CueFront").GetComponent<Rigidbody>(); //parent of cue stick - used to reference the front for position
+        cueBack = GameObject.FindGameObjectWithTag("cueback").GetComponent<Transform>(); //child of cue stick - used for cue length
+        cueFront = GameObject.FindGameObjectWithTag("cuefront").GetComponent<Rigidbody>(); //parent of cue stick - used to reference the front for position
         cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
         cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze position
         cueFront.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
         cueFront.constraints = RigidbodyConstraints.FreezePosition; //freeze position of the cue stick (fixed bug of cue randomly moving)
-        env = GameObject.Find("Scaler").GetComponent<Transform>(); //object in which all gameobjects are stored for scaling purposes
+        env = GameObject.FindGameObjectWithTag("scaler").GetComponent<Transform>(); //object in which all gameobjects are stored for scaling purposes
         table = GameObject.FindGameObjectWithTag("table").GetComponent<Transform>(); //pool table
-        cueMesh = GameObject.Find("CueBall").GetComponent<MeshRenderer>(); //visible mesh of the cue ball object
-        redballMesh = GameObject.Find("RedBall").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
-        cuestickMesh = GameObject.Find("Cue").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
-        cuestickCollide = GameObject.Find("Cue").GetComponent<MeshCollider>();
-        cuetipCollide = GameObject.Find("CueTip").GetComponent<CapsuleCollider>();
-        cueballCollide = GameObject.Find("CueBall").GetComponent<SphereCollider>();
+        cueMesh = GameObject.FindGameObjectWithTag("cueball").GetComponent<MeshRenderer>(); //visible mesh of the cue ball object
+        redballMesh = GameObject.FindGameObjectWithTag("redball").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
+        cuestickMesh = GameObject.FindGameObjectWithTag("cue").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
+        cueballCollide = GameObject.FindGameObjectWithTag("cueball").GetComponent<SphereCollider>();
 
         //booleans
         cue_cueball = false;
@@ -181,6 +179,7 @@ public class Experiment : MonoBehaviour
         cueMesh.enabled = true;
         redballMesh.enabled = true;
         isEnvSet = true;
+        nextTrial = false;
 
         //Calibration Variables
         corner1 = GameObject.Find("Corner1").GetComponent<Transform>();
@@ -188,14 +187,16 @@ public class Experiment : MonoBehaviour
         corner3 = GameObject.Find("Corner3").GetComponent<Transform>();
         corner4 = GameObject.Find("Corner4").GetComponent<Transform>();
 
-        //testing
-        
+        //trial variables
+        trialnum = 1;
+        trialTime = 0f;
 
+        //testing
 
     }
 
     
-
+    //Method to set the scale and position of the environment and game objects
     public static void startCalibration()
     {
 
@@ -230,12 +231,10 @@ public class Experiment : MonoBehaviour
         cuestart = cueRB.position;
 
         //Testing
-        
-
 
     }
 
-    //place unity object at corner 3 (close right) position
+    //place unity object at corner 3 (close right) position to calibrate real pool table position with unity table position
     public static void setEnvPosition(Vector3 objectPos)
     {
         Vector3 cornerpos = corner3.position;
@@ -248,7 +247,7 @@ public class Experiment : MonoBehaviour
 
     }
 
-    //place controllers in pockets
+    //Method to calibrate real life pocket pool table width with unity table width
     public static void setScale(float tableWidth_cm, Vector3 p1, Vector3 p2)
     {
         float currentTableWidth = (corner1.position - corner2.position).magnitude;
@@ -262,33 +261,29 @@ public class Experiment : MonoBehaviour
         //Debug.Log("Scaling = " + scale);
     }
 
+    //Method to scale the length of the cue stick using a cm-Unity calibration value
     public static void setCueSize()
     {
         float realLength = PlayerPrefs.GetFloat("realCueLength");
         float unityLength = (cueBack.transform.position - cueTip.position).magnitude;
         float desiredLength = realLength * PlayerPrefs.GetFloat("cmToUnity");
-        //Debug.Log(unityLength.ToString("f4"));
-        //Debug.Log(PlayerPrefs.GetFloat("cmToUnity").ToString("f4"));
         float cueScale = desiredLength / unityLength;
 
-        //float cueScale = 0.75f;
-        //Debug.Log("scale = " + cueScale.ToString("f4"));
         cueFront.transform.localScale = cueFront.transform.localScale * cueScale;
-        Debug.Log("scale = " + cueFront.transform.localScale.ToString("f4"));
         PlayerPrefs.SetFloat("unityCueLength", (cueBack.transform.position - cueTip.position).magnitude);
     }
 
+    //Method to set raidus of pool balls
     public static void setBallSize()
     {
         float d = 1.25f;
-        float r = 0.45f;
+        float r = d/2;
         cueballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
         redballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
-        //Debug.Log(cueballRB.transform.localScale.ToString("f4"));
         //cueballCollide.radius = r;
     }
 
-    //Get table limits
+    //Get table limits using pocket positions and error
     public void setTableBoundary()
     {
         float d = 0.2f;
@@ -298,6 +293,7 @@ public class Experiment : MonoBehaviour
         zmax = corner4.transform.position.z + d;
     }
 
+    //Method to do a 2D coordinate transformation given a vector pos (x,z,1) and 3x3 transformation matrix m
     public static Vector3 transformCoordinates(Vector3 pos, float[,] m)
     {
         float[,] A = new float[,] { { pos.x }, { pos.z }, { 1 } }; //optitrack position
@@ -310,6 +306,7 @@ public class Experiment : MonoBehaviour
     //Function to reset the game scene once the trial is over
     public static void restartScene()
     {
+
         //Set ball velocities to zero and move to starting positions
         setStill(cueballRB);
         setStill(redballRB);
@@ -324,11 +321,14 @@ public class Experiment : MonoBehaviour
         madeShot = false;
         scratch = false;
         outOfBounds = false;
+        CueBallController.onAdapt = true;
+        nextTrial = true;
 
         //other
         cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
         cueFront.constraints = RigidbodyConstraints.FreezeRotation;
         cueFront.constraints = RigidbodyConstraints.FreezePosition;
+
 
         //Load starting scene again
         //SceneManager.LoadScene("Main");
@@ -341,6 +341,7 @@ public class Experiment : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
     }
 
+    //method to check if trial scene has no more movement
     public static bool isSceneStill()
     {
         if (outOfBounds)
@@ -422,8 +423,9 @@ public class Experiment : MonoBehaviour
     //function to access environment game object data
     void storeData()
     {
-        timestamp = Time.time.ToString("F4");
-        var cuepos = vecToStr(cueFront.position);
+        trialTime += Time.deltaTime;
+        var cueposfront = vecToStr(cueFront.position);
+        var cueposback = vecToStr(cueBack.position);
         var cuevel = vecToStr(cueFront.velocity);
         var cueballpos = vecToStr(cueballRB.position);
         var cueballvel = vecToStr(cueballRB.velocity);
@@ -434,17 +436,17 @@ public class Experiment : MonoBehaviour
         madeshottime = null;
         if (cue_cueball)
         {
-            shottime = Time.time.ToString("F4");
+            shottime = "x";
         }
         if (cueball_redball)
         {
-            redballtime = Time.time.ToString("F4");
+            redballtime = "x";
         }
         if (madeShot)
         {
-            madeshottime = Time.time.ToString("F4");
+            madeshottime = "x";
         }
-        var newLine = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9}", timestamp, cuepos, cuevel, cueballpos, cueballvel, redballpos, redballvel, shottime, redballtime, madeshottime);
+        var newLine = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}", trialnum, trialTime.ToString("f4"), cueposfront, cueposback, cuevel, cueballpos, cueballvel, redballpos, redballvel, shottime, redballtime, madeshottime);
         csv.AppendLine(newLine);
     }
 
@@ -462,7 +464,7 @@ public class Experiment : MonoBehaviour
         if (!File.Exists(dir))
         {
             // Create a file to write to.
-            string titles = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9}", "Timestamp", "cuepos", "cuevel", "CBpos", "CBvel", "RBpos", "RBvel", "C1", "C2", "C3" + System.Environment.NewLine);
+            string titles = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}", "TrialNumber", "Timestamp", "cueposfront", "cueposback", "cuevel", "CBpos", "CBvel", "RBpos", "RBvel", "C1", "C2", "C3" + System.Environment.NewLine);
             File.WriteAllText(dir, titles);
         }
         //File.AppendAllText(dir, csv.ToString());
@@ -470,7 +472,7 @@ public class Experiment : MonoBehaviour
     public static Vector3 getEnvShift()
     {
         float offx = PlayerPrefs.GetFloat("ShiftEnvironemnt_x"); //cm : unity
-        float offy = PlayerPrefs.GetFloat("ShiftEnvironemnt_y") + (3f * PlayerPrefs.GetFloat("cmToUnity"));
+        float offy = PlayerPrefs.GetFloat("ShiftEnvironemnt_y") + (2.7f * PlayerPrefs.GetFloat("cmToUnity")); //3
         float offz = PlayerPrefs.GetFloat("ShiftEnvironemnt_z");
         return new Vector3(offx, offy, offz);
     }
@@ -560,6 +562,11 @@ public class Experiment : MonoBehaviour
         PlayerPrefs.SetFloat("totalTrials", 50f);
 
         //************************************************************************ */
+    }
+
+    private void OnApplicationQuit()
+    {
+        File.AppendAllText(dir, csv.ToString());
     }
 
 }

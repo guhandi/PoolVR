@@ -8,7 +8,7 @@ public class SnookerBallController : MonoBehaviour {
 
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
         //Check if red ball is hit out of table
         OutOfBounds();
