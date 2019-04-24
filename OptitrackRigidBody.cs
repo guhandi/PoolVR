@@ -7,12 +7,15 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-//A class that streams data from an Optitrack Motiv rigidbody object to control the cue stick in the Unity environment
+/*
+    A class that streams data from an Optitrack Motiv rigidbody object to the Unity environment
+    Has methods to do Optritrack -> Unity calibration, cue stick control, and cue ball ccollision phsyics
+*/
 public class OptitrackRigidBody : MonoBehaviour
 {
     public OptitrackStreamingClient StreamingClient;
     public Int32 RigidBodyId; //Id of rigidbody object being streamed from Motiv
-    public int count;
+    public int count; //frame count
 
     //public Transform front; //reference to the tip of the cue stick - used for cue stick positioning
     public Transform cueTip; //reference to the tip of the cue stick - used to apply force to the cue ball
@@ -24,8 +27,6 @@ public class OptitrackRigidBody : MonoBehaviour
     private Vector3 cueVelocity; //velocity of cue stick as it is being moved
     public static Vector3 avgVelocity; //average velocity of the cue stick (for smoothing)
     private List<Vector3> VelocityList; //list of last 5 cue velocities
-    private float[,] transformFront;
-    private float[,] transformBack;
 
     private int backID1;
     private int backID2;
@@ -44,6 +45,9 @@ public class OptitrackRigidBody : MonoBehaviour
     private bool markerIDs = true;
     private bool test;
 
+    /*
+        Method called at start of game
+    */
     void Start()
     {
         // If the user didn't explicitly associate a client, find a suitable default.
@@ -62,6 +66,8 @@ public class OptitrackRigidBody : MonoBehaviour
 
         count = 0; //frame number
         prevPos = Experiment.cuestart; //initialize previous positons to cue starting position
+        
+        //initialize cue velocities
         cueVelocity = new Vector3(0f, 0f, 0f);
         VelocityList = new List<Vector3>();
         for (int i = 0; i < Experiment.numVelocitiesAverage; i++)
@@ -69,6 +75,7 @@ public class OptitrackRigidBody : MonoBehaviour
             VelocityList.Add(cueVelocity);
         }
 
+        //initialize IDs and positions of optitrack markers placed on the pool table
         corner1ID = -1;
         corner2ID = -1;
         corner3ID = -1;
@@ -76,6 +83,7 @@ public class OptitrackRigidBody : MonoBehaviour
         C2 = new List<Vector3>();
         C3 = new List<Vector3>();
 
+        //get IDs and positions of optitrack markers
         if (Experiment.experiment == 0 && markerIDs)
         {
             getCalMarkerId();
@@ -105,27 +113,29 @@ public class OptitrackRigidBody : MonoBehaviour
     }
 #endif
 
-
+    /*
+        Update method called once per frame 
+    */
     void FixedUpdate()
     {
+        //CALIBRATION
         count++;
         if (Experiment.experiment == 0 && Experiment.isEnvSet)
         {
             calibrateTable();
         }
+
+        //EXPERIMENT - get marker positions and translate cue position from Optitrack to Unity environemnt
         if (Experiment.experiment != 0)
         {
             UpdatePose();
         }
 
-        //if (count == 200)
-        //{
-            //getCueMarkers();
-        //}
-
     }
 
-    //Update the position of the cue rigidbody every frame
+    /*
+        Method to update the position of the cue rigidbody every by reading the data from the Optitrack client
+    */
     void UpdatePose()
     {
         
@@ -161,15 +171,13 @@ public class OptitrackRigidBody : MonoBehaviour
                 int markerID = marker.Id;
                 Vector3 pos = marker.Position;
                 markerPositions.Add(marker.Position);
-
-
             }
             
             IEnumerable<Vector3> sorted = markerPositions.OrderBy(v => v.z); //sort marker positions by z position
-            OfrontPos = (sorted.ElementAt(3) + sorted.ElementAt(2)) / 2;
-            ObackPos = (sorted.ElementAt(1) + sorted.ElementAt(0)) / 2;
+            OfrontPos = (sorted.ElementAt(3) + sorted.ElementAt(2)) / 2; //front position is average of front two markers
+            ObackPos = (sorted.ElementAt(1) + sorted.ElementAt(0)) / 2; //back position is average of back two markers
 
-            //SET CUE POSITION
+            //Translate optitrack positions to unity using helper methods ( [Xo, Zo, 1] * M = [Xu, Zu, 1])
             float[,] frontMatrix = new float[,] { { OfrontPos.x }, { OfrontPos.z }, { 1 } };
             float[,] backMatrix = new float[,] { { ObackPos.x }, { ObackPos.z }, { 1 } };
             float[,] frontU = Experiment.MultiplyMatrix(Experiment.M, frontMatrix);
@@ -177,8 +185,11 @@ public class OptitrackRigidBody : MonoBehaviour
             Vector3 backPos = new Vector3(backU[0, 0], ObackPos.y * Experiment.yratio, backU[1, 0]);
             Vector3 frontPos = new Vector3(frontU[0, 0], OfrontPos.y * Experiment.yratio, frontU[1, 0]);
 
+            //cue position is front position plus projected vector
             Vector3 direction = (frontPos - backPos).normalized;
-            cuePos = frontPos + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity")); //cue position is front position plus projected vector
+            cuePos = frontPos + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity")); 
+            
+            //limit cuetip height to table surface height
             if (cuePos.y < Experiment.corner1.position.y)
             {
                 cuePos = new Vector3(cuePos.x, Experiment.corner1.position.y, cuePos.z);
@@ -229,7 +240,6 @@ public class OptitrackRigidBody : MonoBehaviour
         //stop calibratiing after 100 samples and print results
         if (numCalSamples > 100)
         {
-
             Vector3 avgC1 = Experiment.AverageVec(C1);
             Vector3 avgC2 = Experiment.AverageVec(C2);
             Vector3 avgC3 = Experiment.AverageVec(C3);

@@ -7,7 +7,10 @@ using UnityEngine.VR;
 using System.Text;
 using System.IO;
 
-//Class used to collect data from game objects and writes info to file
+/*
+    The main game class.
+    Contains methods to initialize all game variables, store & write game data, and perfrom calibrations
+*/
 public class Experiment : MonoBehaviour
 {
 
@@ -17,7 +20,6 @@ public class Experiment : MonoBehaviour
     public static Vector3 adaptationForce = new Vector3(-0.1f, 0, 0); //force applied to the cue ball for adaptation task
     public static float waitTime = 0.5f; //time to wait before feedback change
     public static int trialnum; //current trial number
-    public static int totalTrials = 50; //trials per block
     public static bool nextTrial;
     public Text trial;
     private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test2.txt"; //path directory to write text file to
@@ -70,6 +72,7 @@ public class Experiment : MonoBehaviour
     public static bool outOfBounds; //true if cue ball is hit out of the pool table field    
 
     //************************************************************************ */
+    //data storage
     private StringBuilder csv;
     public float trialTime;
     private string timestamp;
@@ -78,21 +81,16 @@ public class Experiment : MonoBehaviour
     private string madeshottime;
     private Vector3 pos;
     private int count = 0;
-    private bool test;
 
-    //testing
-    
-
-
-    //************************************************************************ */
-    // Use this for initialization
+    /*
+        Method called at start of game
+    */
     void Start()
     {
         
         //Initialize game variables
         initGameVariables();
         
-
         //Calibrate environments
         startCalibration();
         setTableBoundary();
@@ -101,13 +99,11 @@ public class Experiment : MonoBehaviour
         csv = new StringBuilder(); //file object to write to
         startInfo(); //write variable titles to file
 
-        //testing
-        test = true;
-
-
     }
 
-    // Update is called once per frame
+    /*
+        Update method called once per frame (main game loop)
+    */
     void FixedUpdate()
     {
 
@@ -119,20 +115,23 @@ public class Experiment : MonoBehaviour
             trialnum = trialnum + 1;
         }
 
+        //store current frame variable data
         storeData();
         if (nextTrial)
         {
-            
             trial.text = "Trial : " + trialnum;
         }
 
         //DO CALIBRATION
         count++;
-        if (experiment == 0)
+        if (experiment == 0) //for calibration
         {
-            if (count > 500 && !isEnvSet)
+            if (count > 500 && !isEnvSet) //after 500 frames (to ensure equilibrium has been reached)
             {
-                setScale(realWidth, ctrl1.transform.position, ctrl2.transform.position);
+                //set environment scale
+                setScale(realWidth, ctrl1.transform.position, ctrl2.transform.position); 
+                
+                //set calibration position to be the corner 3 pocket and match the environments
                 Vector3 calpos = ctrl1.transform.position;
                 if (ctrl2.transform.position.x > calpos.x)
                 {
@@ -143,15 +142,13 @@ public class Experiment : MonoBehaviour
 
             }
         }
-
-        //testing
-        
     }
 
-    //************************************************************************ */
+    /*
+        Method to initialize all the game variables in the scene needed by the code
+    */
     public void initGameVariables()
     {
-
         //Game Objects
         cueRB = GameObject.FindGameObjectWithTag("cue").GetComponent<Rigidbody>(); //physics rigidbody of cue
         redballRB = GameObject.FindGameObjectWithTag("redball").GetComponent<Rigidbody>(); //physics rigidbody of red ball
@@ -168,7 +165,7 @@ public class Experiment : MonoBehaviour
         cueMesh = GameObject.FindGameObjectWithTag("cueball").GetComponent<MeshRenderer>(); //visible mesh of the cue ball object
         redballMesh = GameObject.FindGameObjectWithTag("redball").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
         cuestickMesh = GameObject.FindGameObjectWithTag("cue").GetComponent<MeshRenderer>(); //visible mesh of the red ball object
-        cueballCollide = GameObject.FindGameObjectWithTag("cueball").GetComponent<SphereCollider>();
+        cueballCollide = GameObject.FindGameObjectWithTag("cueball").GetComponent<SphereCollider>(); //cue ball collider object
 
         //booleans
         cue_cueball = false;
@@ -191,16 +188,16 @@ public class Experiment : MonoBehaviour
         trialnum = 1;
         trialTime = 0f;
 
-        //testing
-
     }
 
     
-    //Method to set the scale and position of the environment and game objects
+    /*
+        Method to set the scale and position of the environment and game objects
+    */
     public static void startCalibration()
     {
 
-        //If calibration, reset calibration variables
+        //If calibration, reset calibration variables (for troubleshooting uncomment gameinfo() to reset values)
         if (experiment == 0)
         {
             isEnvSet = false;
@@ -221,16 +218,12 @@ public class Experiment : MonoBehaviour
         numVelocitiesAverage = 5;
         poolTableWidth = PlayerPrefs.GetFloat("poolTableWidth"); //unity
         realWidth = PlayerPrefs.GetFloat("realWidth"); //unity
-        //yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("optitrackTableHeight"); //height sclaing ratio between environemnts
-        //yratio = PlayerPrefs.GetFloat("unityTableHeight") / PlayerPrefs.GetFloat("Ocuey");
         yratio = corner1.position.y / PlayerPrefs.GetFloat("Ocuey");
 
         //store object start positions
         cueballstart = cueballRB.position;
         redballstart = redballRB.position;
         cuestart = cueRB.position;
-
-        //Testing
 
     }
 
@@ -303,7 +296,7 @@ public class Experiment : MonoBehaviour
 
     }
 
-    //Function to reset the game scene once the trial is over
+    //Method to reset the game scene once the trial is over
     public static void restartScene()
     {
 
@@ -334,14 +327,14 @@ public class Experiment : MonoBehaviour
         //SceneManager.LoadScene("Main");
     }
 
-    //Function to set Rigidbody rb velocity to zero
+    //Method to set Rigidbody rb velocity to zero
     public static void setStill(Rigidbody rb)
     {
         rb.velocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
     }
 
-    //method to check if trial scene has no more movement
+    //Method to check if trial scene has no more movement
     public static bool isSceneStill()
     {
         if (outOfBounds)
@@ -355,7 +348,7 @@ public class Experiment : MonoBehaviour
         return false;
     }
 
-    //Function to multiply two 3x3 matrices with each other
+    //Method to multiply two 3x3 matrices with each other
     //newMat = a * b
     public static float[,] MultiplyMatrix(float[,] a, float[,] b)
     {
@@ -383,7 +376,7 @@ public class Experiment : MonoBehaviour
     }
 
 
-    //Function to invert 3x3 matrix m
+    //Method to invert 3x3 matrix m
     //minv = m^-1
     public static float[,] inverseMat(float[,] m)
     {
@@ -408,7 +401,7 @@ public class Experiment : MonoBehaviour
 
     }
 
-    //return average of all vectors in list
+    //Method to return average of all vectors in list
     public static Vector3 AverageVec(List<Vector3> vlist)
     {
         Vector3 sumvec = new Vector3(0f, 0f, 0f);
@@ -420,7 +413,7 @@ public class Experiment : MonoBehaviour
 
     }
 
-    //function to access environment game object data
+    //Method to store environment game object data to csv object
     void storeData()
     {
         trialTime += Time.deltaTime;
@@ -450,13 +443,13 @@ public class Experiment : MonoBehaviour
         csv.AppendLine(newLine);
     }
 
-    //function to return a single string representation of a vector
+    //Method to return a single string representation of a vector
     private string vecToStr(Vector3 val)
     {
         return ("" + val[0] + ";" + val[1] + ";" + val[2] + ";");
     }
 
-    //Function to write the start information
+    //Method to write the start information
     void startInfo()
     {
 
@@ -469,6 +462,8 @@ public class Experiment : MonoBehaviour
         }
         //File.AppendAllText(dir, csv.ToString());
     }
+
+    //Method to get calibrated start position for environment
     public static Vector3 getEnvShift()
     {
         float offx = PlayerPrefs.GetFloat("ShiftEnvironemnt_x"); //cm : unity
@@ -477,18 +472,7 @@ public class Experiment : MonoBehaviour
         return new Vector3(offx, offy, offz);
     }
 
-    public static Vector3 getCueballStart()
-    {
-        float x = PlayerPrefs.GetFloat("Ocuex"); 
-        float y = PlayerPrefs.GetFloat("Ocuex");
-        float z = PlayerPrefs.GetFloat("Ocuex");
-
-        float[,] OptiM = new float[,] { { x }, { z }, { 1 } };
-        float[,] UnityM = Experiment.MultiplyMatrix(Experiment.M, OptiM);
-        Vector3 pos = new Vector3(UnityM[0, 0], y * Experiment.yratio, UnityM[1, 0]);
-        return new Vector3(x, y, z);
-    }
-
+    //Method to get stored calibrated transformation matrix
     public static float[,] getTransformationMatrix()
     {
         //Unity Corner Positions
@@ -521,6 +505,13 @@ public class Experiment : MonoBehaviour
 
     }
 
+    //Method called when application closed to write data to text file
+    private void OnApplicationQuit()
+    {
+        File.AppendAllText(dir, csv.ToString());
+    }
+
+    //Method to get reset stroed game variables to default
     public static void GameInfo()
     {
 
@@ -559,14 +550,8 @@ public class Experiment : MonoBehaviour
         PlayerPrefs.SetFloat("adaptationForce_y", 0f);
         PlayerPrefs.SetFloat("adaptationForce_z", 0f);
         PlayerPrefs.SetFloat("waitTime", 0.5f);
-        PlayerPrefs.SetFloat("totalTrials", 50f);
 
         //************************************************************************ */
-    }
-
-    private void OnApplicationQuit()
-    {
-        File.AppendAllText(dir, csv.ToString());
     }
 
 }
