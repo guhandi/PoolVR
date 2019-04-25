@@ -14,8 +14,7 @@ col6 = table2array(data(:,6));
 tnum = table2array(datatrial(:,3));
 numtrials = length(tnum);
 window = 500;
-xo = 705;
-zo = 256;
+
 
 cbx = zeros(numtrials,window);
 cbz = zeros(numtrials,window);
@@ -27,8 +26,8 @@ thetadata = {};
 for i=1:numtrials
     start = tnum(i);
     idx = find(col1 == start);
-    cbxpos = col3(idx : idx+window-1)';
-    cbzpos = col4(idx : idx+window-1)';
+    cbxpos = col4(idx : idx+window-1)';
+    cbzpos = col3(idx : idx+window-1)';
     rbxpos = col5(idx : idx+window-1)';
     rbzpos = col6(idx : idx+window-1)';
     
@@ -41,24 +40,31 @@ for i=1:numtrials
     
 end
 
+xo = 247;
+zo = 687;
+corner1x = 450;
+corner1z = 800;
+w = 400;
+us = 1/w;
 %get rid of lost values
 for j=1:numtrials
     tr = j;
     x = cbx(tr, find(cbxpos ~= 135));
     z = cbz(tr, find(cbzpos ~= 35));
-    %x=-(x-xo);
-    %z=-(z-zo);
-    x=-x;
+    xd= -us * (x-xo);
+    zd= -us * (z-zo);
+    
+    
     
     theta = atan(z./x);
-    xdata{j} = x;
-    zdata{j} = z;
+    xdata{j} = xd;
+    zdata{j} = zd;
     thetadata{j} = theta;
     
     %id = find(z>1);
     %zstart = z(id(1)-10 : id(1) + 100);
     %plot(theta(id(1) : id(1) + 100))
-    %plot(z,x,'linewidth',2);
+    plot(xd,zd,'linewidth',2);
     %plot(zstart,'linewidth',2);
     
   

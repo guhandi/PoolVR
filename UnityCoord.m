@@ -15,8 +15,13 @@ cbVel = table2array(data(:,7));
 
 pocketx = [-0.3604,0.3342,-0.3604,0.3342,-0.3604,0.3342];
 pocketz = [-0.9259,-0.9259,-0.2312,-0.2312,0.4634,0.4634];
-w = abs(pocketx(1) - pocketz(1));
-us = 0.5/w;
+w = abs(pocketx(1) - pocketx(2));
+us = 1/w;
+xstart = pocketx(1);
+zstart = pocketz(1);
+px = pocketx - xstart;
+pz = pocketz - zstart;
+
 xdata = {};
 zdata = {};
 thetadata = {};
@@ -31,9 +36,9 @@ idx = find(trial == trialnum);
 trtime = time(idx);
 totaltime = totaltime + max(trtime);
 
-x = cbXpos(idx); %x position data for specific trial
+x = us * (cbXpos(idx)-xstart); %x position data for specific trial
 y = cbYpos(idx);
-z = cbZpos(idx);
+z = us * (cbZpos(idx)-zstart);
 
 xdot = cbXvel(idx);
 ydot = cbYvel(idx);
@@ -49,40 +54,8 @@ zdata{t} = z;
 thetadata{t} = theta;
 thetaddata{t} = thetad;
 
-s=1;
-d=25;
-sidx = find(zdot > 0.0001);
-if (length(sidx) == 0)
-    continue;
-end
-start = sidx(1) + s;
-fin = start + d;
-xwindow = xdot(start:fin);
-zwindow = zdot(start:fin);
-theta_init = theta(start:fin);
-thetad_init = thetad(start:fin);
-
-trajectory(t) = mean(thetad_init);
 
 end
 
-xstart = pocketx(1);
-zstart = pocketz(1);
-pocketx = pocketx - xstart;
-pocketz = pocketz - zstart;
-figure
-hold on
-plot(pocketx, pocketz, 'o','linewidth',2);
-
-for j=1:5
-x=xdata{j};
-z=zdata{j};
-x=x-xstart;
-z=z-zstart;
-
-plot(x,z, 'LineWidth', 2)
-xlabel('x');
-ylabel('x')
-end
 
 end
