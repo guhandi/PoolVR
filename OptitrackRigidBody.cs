@@ -66,7 +66,7 @@ public class OptitrackRigidBody : MonoBehaviour
 
         count = 0; //frame number
         prevPos = Experiment.cuestart; //initialize previous positons to cue starting position
-        
+
         //initialize cue velocities
         cueVelocity = new Vector3(0f, 0f, 0f);
         VelocityList = new List<Vector3>();
@@ -138,7 +138,7 @@ public class OptitrackRigidBody : MonoBehaviour
     */
     void UpdatePose()
     {
-        
+
         OptitrackRigidBodyState rbState = StreamingClient.GetLatestRigidBodyState(RigidBodyId); //access rigidbody
         Vector3 OfrontPos = new Vector3(); //optitrack front position
         Vector3 ObackPos = new Vector3(); //optitrack back position
@@ -150,7 +150,7 @@ public class OptitrackRigidBody : MonoBehaviour
         {
             //Get marker positions
             markerStates = StreamingClient.GetLatestMarkerStates(); //get objects of all markers from rigidbody
-            
+
             //if not all markers are tracked, make cue stick invisible
             if (markerStates.Count != 4)
             {
@@ -163,7 +163,7 @@ public class OptitrackRigidBody : MonoBehaviour
             {
                 Experiment.cuestickMesh.enabled = true;
             }
-            
+
             //Loop through markers
             for (int idx = 0; idx < markerStates.Count; idx++)
             {
@@ -172,7 +172,7 @@ public class OptitrackRigidBody : MonoBehaviour
                 Vector3 pos = marker.Position;
                 markerPositions.Add(marker.Position);
             }
-            
+
             IEnumerable<Vector3> sorted = markerPositions.OrderBy(v => v.z); //sort marker positions by z position
             OfrontPos = (sorted.ElementAt(3) + sorted.ElementAt(2)) / 2; //front position is average of front two markers
             ObackPos = (sorted.ElementAt(1) + sorted.ElementAt(0)) / 2; //back position is average of back two markers
@@ -187,8 +187,8 @@ public class OptitrackRigidBody : MonoBehaviour
 
             //cue position is front position plus projected vector
             Vector3 direction = (frontPos - backPos).normalized;
-            cuePos = frontPos + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity")); 
-            
+            cuePos = frontPos + (direction * PlayerPrefs.GetFloat("tip_marker1") * PlayerPrefs.GetFloat("cmToUnity"));
+
             //limit cuetip height to table surface height
             if (cuePos.y < Experiment.corner1.position.y)
             {
@@ -197,8 +197,12 @@ public class OptitrackRigidBody : MonoBehaviour
 
             //calculate velocity
             cueVelocity = (cuePos - prevPos) / Time.fixedDeltaTime;
+            if (cueVelocity.magnitude > 3)
+            {
+                cueVelocity = 3f * cueVelocity.normalized;
+            }
             VelocityList.Add(cueVelocity);
-            avgVelocity = AverageVelocity(VelocityList, Experiment.numVelocitiesAverage);
+            //avgVelocity = AverageVelocity(VelocityList, Experiment.numVelocitiesAverage);
             prevPos = cuePos;
 
             //move cue rigidbody to updated position
@@ -245,9 +249,9 @@ public class OptitrackRigidBody : MonoBehaviour
             Vector3 avgC3 = Experiment.AverageVec(C3);
 
             //derive C2 based on equalateral right triangle 
-            float length = (avgC3 - avgC1).magnitude;
-            Vector3 direction = Quaternion.Euler(0, -90f, 0) * (avgC3 - avgC1).normalized;
-            Vector3 derivedC2 = avgC1 + length * direction;
+            float length = (avgC2 - avgC1).magnitude;
+            Vector3 direction = Quaternion.Euler(0, -90f, 0) * (avgC2 - avgC1).normalized;
+            Vector3 derivedC3 = avgC1 + length * direction;
 
             //Unity Corner Positions
             PlayerPrefs.SetFloat("Ucorner1x", Experiment.corner1.position.x);
@@ -264,17 +268,17 @@ public class OptitrackRigidBody : MonoBehaviour
             PlayerPrefs.SetFloat("Ocorner1x", avgC1.x);
             PlayerPrefs.SetFloat("Ocorner1y", avgC1.y);
             PlayerPrefs.SetFloat("Ocorner1z", avgC1.z);
-            PlayerPrefs.SetFloat("Ocorner2x", derivedC2.x);
-            PlayerPrefs.SetFloat("Ocorner2y", derivedC2.y);
-            PlayerPrefs.SetFloat("Ocorner2z", derivedC2.z);
-            PlayerPrefs.SetFloat("Ocorner3x", avgC3.x);
-            PlayerPrefs.SetFloat("Ocorner3y", avgC3.y);
-            PlayerPrefs.SetFloat("Ocorner3z", avgC3.z);
+            PlayerPrefs.SetFloat("Ocorner2x", avgC2.x);
+            PlayerPrefs.SetFloat("Ocorner2y", avgC2.y);
+            PlayerPrefs.SetFloat("Ocorner2z", avgC2.z);
+            PlayerPrefs.SetFloat("Ocorner3x", derivedC3.x);
+            PlayerPrefs.SetFloat("Ocorner3y", derivedC3.y);
+            PlayerPrefs.SetFloat("Ocorner3z", derivedC3.z);
 
             //Cue ball starting position in unity
-            PlayerPrefs.SetFloat("Ocuex", avgC2.x);
-            PlayerPrefs.SetFloat("Ocuey", avgC2.y);
-            PlayerPrefs.SetFloat("Ocuez", avgC2.z);
+            PlayerPrefs.SetFloat("Ocuex", avgC3.x);
+            PlayerPrefs.SetFloat("Ocuey", avgC3.y);
+            PlayerPrefs.SetFloat("Ocuez", avgC3.z);
             //Experiment.optiPocketPoints = new float[,] { { avgC1.x, avgC2.x, avgC3.x }, { avgC1.z, avgC2.z, avgC3.z }, { 1f, 1f, 1f } };
 
             if (test)
@@ -283,7 +287,7 @@ public class OptitrackRigidBody : MonoBehaviour
                 Debug.Log("corner1 position = " + avgC1.ToString("f4"));
                 Debug.Log("corner2ID = " + corner2ID);
                 Debug.Log("corner2 position = " + avgC2.ToString("f4"));
-                Debug.Log("derived C2    " + derivedC2.ToString("f4"));
+                Debug.Log("derived C3    " + derivedC3.ToString("f4"));
                 Debug.Log("corner3ID = " + corner3ID);
                 Debug.Log("corner3 position = " + avgC3.ToString("f4"));
                 Debug.Log("Unity positions");
@@ -291,8 +295,8 @@ public class OptitrackRigidBody : MonoBehaviour
                 Debug.Log("corner2" + Experiment.corner2.position.ToString("f4"));
                 Debug.Log("corner3" + Experiment.corner3.position.ToString("f4"));
 
-                float optiPocketDist = (avgC1 - avgC3).magnitude;
-                float unityPocketDist = (Experiment.corner1.position - Experiment.corner3.position).magnitude;
+                float optiPocketDist = (avgC1 - avgC2).magnitude;
+                float unityPocketDist = (Experiment.corner1.position - Experiment.corner2.position).magnitude;
                 PlayerPrefs.SetFloat("optiToUnity", unityPocketDist / optiPocketDist);
 
                 test = false;
@@ -338,8 +342,8 @@ public class OptitrackRigidBody : MonoBehaviour
 
         //store marker IDs
         corner1ID = idList[0]; //by elimination we get the 3rd corner 
-        corner2ID = idz;
-        corner3ID = idx;
+        corner2ID = idx;
+        corner3ID = idz;
     }
 
     //Get marker IDs for cue for cue stick
@@ -372,6 +376,11 @@ public class OptitrackRigidBody : MonoBehaviour
     //When cue stick comes into contact with other objects
     private void OnCollisionEnter(Collision col)
     {
+        //If ball has already been hit
+        if (Experiment.cue_cueball)
+        {
+            //return;
+        }
         //If cue ball doesn't collide with any rigidbody do nothing
         Rigidbody rb = col.gameObject.GetComponent<Rigidbody>();
         if (!rb)
@@ -382,101 +391,29 @@ public class OptitrackRigidBody : MonoBehaviour
         //If cue stick collides with the cue ball
         if (col.gameObject.name == "CueBall")
         {
-            
-            //for contact quality
-            int minpoints = 1;
-            int maxpoints = 5;
-            int numcontacts = col.contacts.Length;
-            float contactScale = (numcontacts - minpoints) / ((maxpoints - minpoints)/2);
-
-
-            //for cue force and velocity
-            float minvel = 0.01f;
-            float maxvel = 2f;
-            float minforce = 0f;
-            float maxforce = 0.1f;
-
-            Vector3 direction = avgVelocity.normalized; //force direction is norm of cue velocity
-            float mag = avgVelocity.magnitude;
-            float scale = (mag - minvel) / (maxvel - minvel);
-            Vector3 forceVec = maxforce * scale * direction;
-
-            Vector3 contactPoint = new Vector3();
-            List<Vector3> contactList = new List<Vector3>(); //list of all points of contact between stick and ball
-            foreach (ContactPoint contact in col.contacts)
-            {
-                Vector3 pt = contact.point;
-                contactList.Add(contact.point);
-                //rb.AddForceAtPosition(forceVec, pt, ForceMode.Impulse);
-            }
-
-            contactPoint = Experiment.AverageVec(contactList);
-            //contactPoint = col.contacts[0].point;
-            Debug.Log("numpoints  :" + numcontacts);
-            
-            Vector3 t = new Vector3(0.1f, 0, 5f);
-            //rb.AddForce(0.5f * avgVelocity.normalized, ForceMode.Impulse);
-            //rb.AddForce(contactScale * forceVec, ForceMode.Impulse);
-            //rb.AddForceAtPosition(forceVec, contactPoint, ForceMode.Impulse);
-            //rb.AddTorque(forceVec);
-            Vector3 momentumVec = cueVelocity * Experiment.cueRB.mass / Experiment.cueballRB.mass; //elastic collision velocity between cue stick and ball
+            avgVelocity = AverageVelocity(VelocityList, Experiment.numVelocitiesAverage);
+            float maxvel = 3f;
+            float mag = cueVelocity.magnitude;
+            float scale = (float)Math.Pow(mag, 1.15f) / mag;
+            //float scale = 1f;
+            Vector3 momentumVec = scale * avgVelocity * Experiment.cueRB.mass / Experiment.cueballRB.mass; //elastic collision velocity between cue stick and ball scaled by magnitude of cue shot
             rb.velocity = momentumVec; //add velocity to cue ball
 
-            Debug.Log("force app  :  " + forceVec.ToString("f4"));
-            Debug.Log("velocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
-            Debug.Log("mag   :  " + mag.ToString("f4"));
+            Debug.Log("avgvelocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
             Debug.Log("cuevelocity   :  " + cueVelocity.ToString("f4"));
-            Debug.Log("contactpoint   : " + contactPoint.ToString("f4"));
+            Debug.Log("momentm   :" + momentumVec.ToString("f4"));
             Debug.Log("frontpos   : " + cueTip.position.ToString("f4"));
-        }
-    }
 
-
-    //Method that is called at any gameobject collision with the cue stick
-    void OnCollisionStay(Collision col)
-    {
-        return;
-        //float scale = 0.05f;
-        //If cue ball doesn't collide with any rigidbody do nothing
-        Rigidbody rb = col.gameObject.GetComponent<Rigidbody>();
-        if (!rb)
-        {
-            //return;
-        }
-
-        //If cue stick collides with the cue ball
-        if (col.gameObject.name == "CueBall")
-        {
-            float minvel = 0.1f;
-            float maxvel = 5f;
-            float minforce = 0f;
-            float maxforce = 0.25f;
-
-
-            foreach (ContactPoint contact in col.contacts)
-            {
-                Vector3 contactPoint = contact.point;
-                Vector3 tforce = new Vector3(0f, 0f, 0.3f);
-                Vector3 direction = avgVelocity.normalized;
-                float mag = avgVelocity.magnitude;
-                float scale = (mag - minvel) / (maxvel - minvel);
-                Vector3 forceVec = scale * maxforce * direction;
-
-                //rb.AddForceAtPosition(scale * forceVec, contactPoint, ForceMode.Impulse);
-                rb.AddForce(scale * forceVec, ForceMode.Force);
-                //rb.AddForceAtPosition(tforce, contactPoint, ForceMode.Impulse);
-                //rb.AddForce(numContacts * scale*forceVec, ForceMode.Impulse);
-                Debug.Log("contact point  = " + contactPoint.ToString("f4"));
-                Debug.Log("force app  :  " + (scale * forceVec).ToString("f4"));
-                Debug.Log("velocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
-
-            }
         }
     }
 
     //Helper method to calculate average of last n vectors in list
     private Vector3 AverageVelocity(List<Vector3> vlist, int numavg)
     {
+        if (vlist.Count < numavg)
+        {
+            numavg = vlist.Count;
+        }
         Vector3 sumvel = new Vector3(0f, 0f, 0f);
         for (int idx = vlist.Count - 1; idx >= vlist.Count - numavg; idx--)
         {

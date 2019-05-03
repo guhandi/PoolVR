@@ -6,10 +6,13 @@ using UnityEngine.SceneManagement;
 //A class that tracks the cue ball to perfom necessary game functions and to keep track of various game events
 public class CueBallController : MonoBehaviour
 {
+    public AudioClip myClip;
+    public AudioSource mySource;
     public static bool onAdapt;
     // Use this for initialization
     void Start()
     {
+        mySource.clip = myClip;
         onAdapt = true;
     }
 
@@ -54,6 +57,7 @@ public class CueBallController : MonoBehaviour
         if (col.gameObject.name == "RedBall")
         {
             Experiment.cueball_redball = true;
+            mySource.Play();
             Vector3 vel = Experiment.cueballRB.velocity;
             Vector3 direction = vel.normalized;
             Vector3 contactPoint = col.contacts[0].point;

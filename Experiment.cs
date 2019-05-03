@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,7 +23,7 @@ public class Experiment : MonoBehaviour
     public static int trialnum; //current trial number
     public static bool nextTrial;
     public Text trial;
-    private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test2.txt"; //path directory to write text file to
+    private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test3.txt"; //path directory to write text file to
 
 
     //************************************************************************ */
@@ -52,6 +53,8 @@ public class Experiment : MonoBehaviour
     public static Transform corner2; //unity pocket 2 - middle left
     public static Transform corner3; //unity pocket 3 - front right
     public static Transform corner4; //unity pocket 4 - back right
+    public static Transform corner5; //unity pocket 3 - front right
+    public static Transform corner6; //unity pocket 4 - back right
     public static float xmin; //left edge postion
     public static float xmax; //right edge position
     public static float zmin; //back edge position
@@ -87,10 +90,10 @@ public class Experiment : MonoBehaviour
     */
     void Start()
     {
-        
+
         //Initialize game variables
         initGameVariables();
-        
+
         //Calibrate environments
         startCalibration();
         setTableBoundary();
@@ -98,6 +101,15 @@ public class Experiment : MonoBehaviour
         //Data stuff
         csv = new StringBuilder(); //file object to write to
         startInfo(); //write variable titles to file
+
+        //testing
+        Debug.Log(corner1.position.ToString("f4"));
+        Debug.Log(corner2.position.ToString("f4"));
+        Debug.Log(corner3.position.ToString("f4"));
+        Debug.Log(corner4.position.ToString("f4"));
+        Debug.Log(corner5.position.ToString("f4"));
+        Debug.Log(corner6.position.ToString("f4"));
+
 
     }
 
@@ -110,9 +122,10 @@ public class Experiment : MonoBehaviour
         //restart scene after shot is taken and balls are stationary
         if (experiment != 0 && cue_cueball && (isSceneStill() || outOfBounds))
         {
-            restartScene();
-            trialTime = 0f;
-            trialnum = trialnum + 1;
+            cue_cueball = false;
+            StartCoroutine(wait());
+            //restartScene();
+            
         }
 
         //store current frame variable data
@@ -129,8 +142,8 @@ public class Experiment : MonoBehaviour
             if (count > 500 && !isEnvSet) //after 500 frames (to ensure equilibrium has been reached)
             {
                 //set environment scale
-                setScale(realWidth, ctrl1.transform.position, ctrl2.transform.position); 
-                
+                setScale(realWidth, ctrl1.transform.position, ctrl2.transform.position);
+
                 //set calibration position to be the corner 3 pocket and match the environments
                 Vector3 calpos = ctrl1.transform.position;
                 if (ctrl2.transform.position.x > calpos.x)
@@ -183,6 +196,8 @@ public class Experiment : MonoBehaviour
         corner2 = GameObject.Find("Corner2").GetComponent<Transform>();
         corner3 = GameObject.Find("Corner3").GetComponent<Transform>();
         corner4 = GameObject.Find("Corner4").GetComponent<Transform>();
+        corner5 = GameObject.Find("Corner5").GetComponent<Transform>();
+        corner6 = GameObject.Find("Corner6").GetComponent<Transform>();
 
         //trial variables
         trialnum = 1;
@@ -190,7 +205,7 @@ public class Experiment : MonoBehaviour
 
     }
 
-    
+
     /*
         Method to set the scale and position of the environment and game objects
     */
@@ -230,7 +245,7 @@ public class Experiment : MonoBehaviour
     //place unity object at corner 3 (close right) position to calibrate real pool table position with unity table position
     public static void setEnvPosition(Vector3 objectPos)
     {
-        Vector3 cornerpos = corner3.position;
+        Vector3 cornerpos = corner2.position;
         Vector3 envOffset = objectPos - cornerpos;
         env.position = env.position + envOffset;
 
@@ -270,7 +285,7 @@ public class Experiment : MonoBehaviour
     public static void setBallSize()
     {
         float d = 1.25f;
-        float r = d/2;
+        float r = d / 2;
         cueballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
         redballRB.transform.localScale = d * new Vector3(1f, 1f, 1f);
         //cueballCollide.radius = r;
@@ -281,9 +296,9 @@ public class Experiment : MonoBehaviour
     {
         float d = 0.2f;
         xmin = corner1.transform.position.x - d;
-        xmax = corner3.transform.position.x + d;
+        xmax = corner2.transform.position.x + d;
         zmin = corner1.transform.position.z - d;
-        zmax = corner4.transform.position.z + d;
+        zmax = corner6.transform.position.z + d;
     }
 
     //Method to do a 2D coordinate transformation given a vector pos (x,z,1) and 3x3 transformation matrix m
@@ -297,9 +312,8 @@ public class Experiment : MonoBehaviour
     }
 
     //Method to reset the game scene once the trial is over
-    public static void restartScene()
+    public void restartScene()
     {
-
         //Set ball velocities to zero and move to starting positions
         setStill(cueballRB);
         setStill(redballRB);
@@ -322,9 +336,19 @@ public class Experiment : MonoBehaviour
         cueFront.constraints = RigidbodyConstraints.FreezeRotation;
         cueFront.constraints = RigidbodyConstraints.FreezePosition;
 
-
+        //trial stuff
+        trialTime = 0f;
+        trialnum = trialnum + 1;
         //Load starting scene again
         //SceneManager.LoadScene("Main");
+    }
+
+    IEnumerator wait()
+    {
+        //Wait 0.5s after cue ball collides with redball before objects become invisible
+        yield return new WaitForSeconds(2);
+        restartScene();
+
     }
 
     //Method to set Rigidbody rb velocity to zero
