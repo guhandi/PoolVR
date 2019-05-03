@@ -1,8 +1,11 @@
-function [xdata, zdata] = UnityCoord(data)
+function UnityData = UnityCoord(data)
 %corner1pos = (-0.3604, 0.8554, -0.9259)
 %corner2pos = (0.3342, 0.8554, -0.9259)
 %corner5pos = (-0.3604, 0.8554, 0.4634)
 %corner6pos = (0.3342, 0.8554, 0.4634)
+
+timedata={}; xdata={}; zdata={}; xdot={}; zdot={};
+UnityData = {};
 
 % load data
 trial = grp2idx(table2array(data(:,1)));
@@ -16,46 +19,35 @@ cbVel = table2array(data(:,7));
 pocketx = [-0.3604,0.3342,-0.3604,0.3342,-0.3604,0.3342];
 pocketz = [-0.9259,-0.9259,-0.2312,-0.2312,0.4634,0.4634];
 w = abs(pocketx(1) - pocketx(2));
+w = 0.6946;
 us = 1/w;
-xstart = pocketx(1);
-zstart = pocketz(1);
-px = pocketx - xstart;
-pz = pocketz - zstart;
+xstart = cbXpos(1);
+zstart = cbZpos(1);
 
-xdata = {};
-zdata = {};
-thetadata = {};
-thetaddata = {};
-
-totaltime=0;
 %for t=1:trial(end)-1
-for t=1:48
+for t=1:25
 
 trialnum = t;
 idx = find(trial == trialnum);
 trtime = time(idx);
-totaltime = totaltime + max(trtime);
 
 x = us * (cbXpos(idx)-xstart); %x position data for specific trial
-y = cbYpos(idx);
 z = us * (cbZpos(idx)-zstart);
+xdot{t} = cbXvel(idx);
+zdot{t} = cbZvel(idx);
 
-xdot = cbXvel(idx);
-ydot = cbYvel(idx);
-zdot = cbZvel(idx);
-
-theta = atan(z./x);
-thetad = atan(zdot./xdot);
-theta(isnan(theta)) = 0;
-thetad(isnan(thetad)) = 0;
+%shift time
+idx = find(abs(zdot{t}) > 0.001);
+start = idx(1);
+trtime = trtime - trtime(start);
+trtime = trtime';
 
 xdata{t} = x;
 zdata{t} = z;
-thetadata{t} = theta;
-thetaddata{t} = thetad;
-
+timedata{t} = trtime;
 
 end
 
+UnityData = {timedata; xdata; zdata; xdot; zdot};
 
 end
