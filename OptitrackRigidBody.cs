@@ -373,35 +373,60 @@ public class OptitrackRigidBody : MonoBehaviour
 
     }
 
+    private void OnTriggerEnter(Collider col)
+    {
+        
+        //If cue stick collides with the cue ball
+        if (col.gameObject.tag == "cueball")
+        {
+
+            Experiment.cue_cueball = true;
+            //Vector3 pos = col.GetContact(0).point;
+            avgVelocity = AverageVelocity(VelocityList, Experiment.numVelocitiesAverage);
+            float mag = cueVelocity.magnitude;
+            Vector3 vel = new Vector3(0.05f, 0, 5f);
+            //float scale = (float)Math.Pow(mag, 1.1f) / mag;
+            float scale = PlayerPrefs.GetFloat("scalingRatio");
+            //Vector3 momentumVec = avgVelocity * Experiment.cueRB.mass / Experiment.cueballRB.mass; //elastic collision velocity between cue stick and ball scaled by magnitude of cue shot
+            //rb.velocity = momentumVec; //add velocity to cue ball
+
+            Experiment.cueballRB.AddForce(avgVelocity, ForceMode.Impulse);
+
+
+            Debug.Log("avgvelocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
+            Debug.Log("cuevelocity   :  " + cueVelocity.ToString("f4"));
+            Debug.Log("frontpos   : " + cueTip.position.ToString("f4"));
+
+        }
+    }
     //When cue stick comes into contact with other objects
     private void OnCollisionEnter(Collision col)
     {
+        Debug.Log("COLLUSION");
         //If ball has already been hit
         if (Experiment.cue_cueball)
         {
             //return;
         }
-        //If cue ball doesn't collide with any rigidbody do nothing
-        Rigidbody rb = col.gameObject.GetComponent<Rigidbody>();
-        if (!rb)
-        {
-            //return;
-        }
 
         //If cue stick collides with the cue ball
-        if (col.gameObject.name == "CueBall")
+        if (col.gameObject.tag == "cueball")
         {
+            Vector3 pos = col.GetContact(0).point;
             avgVelocity = AverageVelocity(VelocityList, Experiment.numVelocitiesAverage);
-            float maxvel = 3f;
             float mag = cueVelocity.magnitude;
-            float scale = (float)Math.Pow(mag, 1.15f) / mag;
-            //float scale = 1f;
-            Vector3 momentumVec = scale * avgVelocity * Experiment.cueRB.mass / Experiment.cueballRB.mass; //elastic collision velocity between cue stick and ball scaled by magnitude of cue shot
-            rb.velocity = momentumVec; //add velocity to cue ball
+
+            //Vector3 vel = new Vector3(0.05f, 0, 5f);
+            //float scale = (float)Math.Pow(mag, 0.5f) / mag;
+            //float scale = PlayerPrefs.GetFloat("scalingRatio");
+            //Vector3 momentumVec = avgVelocity * Experiment.cueRB.mass / Experiment.cueballRB.mass; //elastic collision velocity between cue stick and ball scaled by magnitude of cue shot
+            //rb.velocity = momentumVec; //add velocity to cue ball
+
+            Experiment.cueballRB.AddForce(avgVelocity, ForceMode.Impulse);
+
 
             Debug.Log("avgvelocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
             Debug.Log("cuevelocity   :  " + cueVelocity.ToString("f4"));
-            Debug.Log("momentm   :" + momentumVec.ToString("f4"));
             Debug.Log("frontpos   : " + cueTip.position.ToString("f4"));
 
         }

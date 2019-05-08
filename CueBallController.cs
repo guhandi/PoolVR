@@ -19,6 +19,9 @@ public class CueBallController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
+        //automatic cueball movement
+        //moveBall();
+
         //Check if cue ball is hit out of table
         OutOfBounds();
 
@@ -37,6 +40,18 @@ public class CueBallController : MonoBehaviour
         }
     }
 
+    //No cue control
+    void moveBall()
+    {
+        float scale = PlayerPrefs.GetFloat("scalingRatio");
+        Vector3 vel = new Vector3(0.05f, 0, 1.5f);
+        Vector3 impulseForce = scale * vel;
+        if (Input.GetMouseButtonDown(0))
+        {
+            Experiment.cueballRB.AddForce(impulseForce, ForceMode.Impulse);
+        }
+    }
+
     //Method that is called at any game object collision with cue ball
     void OnCollisionEnter(Collision col)
     {
@@ -51,17 +66,15 @@ public class CueBallController : MonoBehaviour
         if (col.gameObject.name == "Cue")
         {
             Experiment.cue_cueball = true;
+            //Experiment.cueballRB.AddForce(PlayerPrefs.GetFloat("scalingRatio") * OptitrackRigidBody.avgVelocity, ForceMode.Impulse);
+
         }
 
         //If cue ball hits red ball
         if (col.gameObject.name == "RedBall")
         {
             Experiment.cueball_redball = true;
-            mySource.Play();
-            Vector3 vel = Experiment.cueballRB.velocity;
-            Vector3 direction = vel.normalized;
-            Vector3 contactPoint = col.contacts[0].point;
-            //rb.AddForceAtPosition(0.5f * vel, contactPoint, ForceMode.Impulse);
+            mySource.PlayOneShot(myClip);
 
             //For third experimental condition, the visiual feedback is removed and the balls disappear from the environmnet after contact is made
             if (Experiment.experiment == 3)

@@ -14,20 +14,22 @@ using System.IO;
 */
 public class Experiment : MonoBehaviour
 {
+    //Experiment variables to change
+    public static int experiment = 1; //0 = calibration, 1 = normal, 2 = adaptation, 3 = reward
+    private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\t.txt"; //path directory to write text file to
+
 
     //************************************************************************ */
-    //Data Collection - trials, experiment type, number etc
-    public static int experiment = 1; //0 = calibration, 1 = normal, 2 = adaptation, 3 = reward
+    //Data Collection - trials, experiment type, etc
     public static Vector3 adaptationForce = new Vector3(-0.1f, 0, 0); //force applied to the cue ball for adaptation task
     public static float waitTime = 0.5f; //time to wait before feedback change
     public static int trialnum; //current trial number
     public static bool nextTrial;
     public Text trial;
-    private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test3.txt"; //path directory to write text file to
-
+    
 
     //************************************************************************ */
-    //CALIBRATION VARIABLES TO SET
+    //Calibration Variables to set between real-world, Optitrack, and Unity
     public static Vector3 shiftEnvironemnt; // offset of player position in environemnt 
     public static float envScale; //scaling VR environemnt to real object size
     public static float[,] M; // = MultiplyMatrix(tableUnityPoints, inverseMat(tableOptiPoints)) --> transformation matrix (Xu,Zu,1) = M * (Xo,Zo,1)
@@ -43,7 +45,8 @@ public class Experiment : MonoBehaviour
     public static int numVelocitiesAverage;// = 5; //how many velocities to average for the cue shot velocity measurement
     public static Rigidbody cueballRB; //cue ball rigidbody
     public static Rigidbody redballRB; //red ball rigidbody
-    public static Rigidbody cueRB; //cue stick rigidbody
+    //public static Rigidbody cueRB; //cue stick rigidbody
+    public static Transform cue;
     public static Rigidbody cueFront; //reference to front of cue stick
     public static Transform cueTip; //cue tip
     public static Transform cueBack; //base of cue stick
@@ -84,6 +87,8 @@ public class Experiment : MonoBehaviour
     private string madeshottime;
     private Vector3 pos;
     private int count = 0;
+
+    //testing
 
     /*
         Method called at start of game
@@ -163,14 +168,14 @@ public class Experiment : MonoBehaviour
     public void initGameVariables()
     {
         //Game Objects
-        cueRB = GameObject.FindGameObjectWithTag("cue").GetComponent<Rigidbody>(); //physics rigidbody of cue
+        //cueRB = GameObject.FindGameObjectWithTag("cue").GetComponent<Rigidbody>(); //physics rigidbody of cue
+        cue = GameObject.FindGameObjectWithTag("cue").GetComponent<Transform>(); //physics rigidbody of cue
         redballRB = GameObject.FindGameObjectWithTag("redball").GetComponent<Rigidbody>(); //physics rigidbody of red ball
         cueballRB = GameObject.FindGameObjectWithTag("cueball").GetComponent<Rigidbody>(); //physics rigidbody of cue ball
         cueTip = GameObject.FindGameObjectWithTag("cuetip").GetComponent<Transform>(); //child of cue stick - used for collision
         cueBack = GameObject.FindGameObjectWithTag("cueback").GetComponent<Transform>(); //child of cue stick - used for cue length
         cueFront = GameObject.FindGameObjectWithTag("cuefront").GetComponent<Rigidbody>(); //parent of cue stick - used to reference the front for position
-        cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
-        cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze position
+        //cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
         cueFront.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
         cueFront.constraints = RigidbodyConstraints.FreezePosition; //freeze position of the cue stick (fixed bug of cue randomly moving)
         env = GameObject.FindGameObjectWithTag("scaler").GetComponent<Transform>(); //object in which all gameobjects are stored for scaling purposes
@@ -238,7 +243,8 @@ public class Experiment : MonoBehaviour
         //store object start positions
         cueballstart = cueballRB.position;
         redballstart = redballRB.position;
-        cuestart = cueRB.position;
+        //cuestart = cueRB.position;
+        cuestart = cue.position;
 
     }
 
@@ -332,21 +338,20 @@ public class Experiment : MonoBehaviour
         nextTrial = true;
 
         //other
-        cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
+        //cueRB.constraints = RigidbodyConstraints.FreezeRotation; //freeze rotation of the cue stick (fixed bug of cue randomly moving)
         cueFront.constraints = RigidbodyConstraints.FreezeRotation;
         cueFront.constraints = RigidbodyConstraints.FreezePosition;
 
         //trial stuff
         trialTime = 0f;
         trialnum = trialnum + 1;
-        //Load starting scene again
-        //SceneManager.LoadScene("Main");
+
     }
 
     IEnumerator wait()
     {
         //Wait 0.5s after cue ball collides with redball before objects become invisible
-        yield return new WaitForSeconds(2);
+        yield return new WaitForSeconds(1);
         restartScene();
 
     }
