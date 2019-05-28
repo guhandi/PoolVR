@@ -14,11 +14,12 @@ using System.IO;
 */
 public class Experiment : MonoBehaviour
 {
+
     //Experiment variables to change
     public static int experiment = 1; //0 = calibration, 1 = normal, 2 = adaptation, 3 = reward
     private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test.txt"; //path directory to write text file to
 
-
+    #region Game Variables
     //************************************************************************ */
     //Data Collection - trials, experiment type, etc
     public static Vector3 adaptationForce = new Vector3(-0.1f, 0, 0); //force applied to the cue ball for adaptation task
@@ -91,6 +92,8 @@ public class Experiment : MonoBehaviour
     //testing
     public static bool first = true;
 
+    #endregion
+
     /*
         Method called at start of game
     */
@@ -110,15 +113,6 @@ public class Experiment : MonoBehaviour
         csv = new StringBuilder(); //file object to write to
         startInfo(); //write variable titles to file
 
-        //testing
-        Debug.Log(corner1.position.ToString("f4"));
-        Debug.Log(corner2.position.ToString("f4"));
-        Debug.Log(corner3.position.ToString("f4"));
-        Debug.Log(corner4.position.ToString("f4"));
-        Debug.Log(corner5.position.ToString("f4"));
-        Debug.Log(corner6.position.ToString("f4"));
-
-
     }
 
     /*
@@ -126,10 +120,10 @@ public class Experiment : MonoBehaviour
     */
     void FixedUpdate()
     {
-        
+        #region RestartScene
         //restart scene after shot is taken and balls are stationary
         if (experiment != 0 && cue_cueball && (isSceneStill() || outOfBounds))
-        {
+        { 
             if (first)
             {
                 first = false;
@@ -138,20 +132,22 @@ public class Experiment : MonoBehaviour
             cue_cueball = false;
             first = true;
             StartCoroutine(wait());
-            //restartScene();
-            
         }
+        #endregion
 
+        #region Manage Experiment Info
         //store current frame variable data
         storeData();
         if (nextTrial)
         {
             trial.text = "Trial : " + trialnum;
         }
+        #endregion
 
+        #region Dynamic Calibration
         //DO CALIBRATION
         count++;
-        if (experiment == 0) //for calibration
+        if (experiment == 0)
         {
             if (count > 500 && !isEnvSet) //after 500 frames (to ensure equilibrium has been reached)
             {
@@ -166,11 +162,13 @@ public class Experiment : MonoBehaviour
                 }
                 setEnvPosition(calpos);
                 isEnvSet = true;
-
             }
         }
+        #endregion
+
     }
 
+    #region Method - Initialize variables
     /*
         Method to initialize all the game variables in the scene needed by the code
     */
@@ -218,8 +216,9 @@ public class Experiment : MonoBehaviour
         trialTime = 0f;
 
     }
+    #endregion
 
-
+    #region Methods - Static Calibration
     /*
         Method to set the scale and position of the environment and game objects
     */
@@ -316,16 +315,9 @@ public class Experiment : MonoBehaviour
         zmax = corner6.transform.position.z + d;
     }
 
-    //Method to do a 2D coordinate transformation given a vector pos (x,z,1) and 3x3 transformation matrix m
-    public static Vector3 transformCoordinates(Vector3 pos, float[,] m)
-    {
-        float[,] A = new float[,] { { pos.x }, { pos.z }, { 1 } }; //optitrack position
-        float[,] transformed = MultiplyMatrix(m, A);
-        Vector3 B = new Vector3(transformed[0, 0], pos.y * yratio, transformed[1, 0]); //Unity cue position
-        return B;
+    #endregion
 
-    }
-
+    #region Methods - Restarting Scene
     //Method to reset the game scene once the trial is over
     public void restartScene()
     {
@@ -364,8 +356,7 @@ public class Experiment : MonoBehaviour
         restartScene();
 
     }
-    
-
+   
     //Method to set Rigidbody rb velocity to zero
     public static void setStill(Rigidbody rb)
     {
@@ -385,6 +376,19 @@ public class Experiment : MonoBehaviour
             return true;
         }
         return false;
+    }
+    #endregion
+
+    #region Methods - Matrices
+
+    //Method to do a 2D coordinate transformation given a vector pos (x,z,1) and 3x3 transformation matrix m
+    public static Vector3 transformCoordinates(Vector3 pos, float[,] m)
+    {
+        float[,] A = new float[,] { { pos.x }, { pos.z }, { 1 } }; //optitrack position
+        float[,] transformed = MultiplyMatrix(m, A);
+        Vector3 B = new Vector3(transformed[0, 0], pos.y * yratio, transformed[1, 0]); //Unity cue position
+        return B;
+
     }
 
     //Method to multiply two 3x3 matrices with each other
@@ -439,6 +443,9 @@ public class Experiment : MonoBehaviour
         return minv;
 
     }
+    #endregion
+
+    #region Methods - List operations
 
     //Method to return average of all vectors in list
     public static Vector3 AverageVec(List<Vector3> vlist)
@@ -452,6 +459,15 @@ public class Experiment : MonoBehaviour
 
     }
 
+    //Method to return a single string representation of a vector
+    private string vecToStr(Vector3 val)
+    {
+        return ("" + val[0] + ";" + val[1] + ";" + val[2] + ";");
+    }
+
+    #endregion
+
+    #region Methods - Data writing
     //Method to store environment game object data to csv object
     void storeData()
     {
@@ -482,12 +498,6 @@ public class Experiment : MonoBehaviour
         csv.AppendLine(newLine);
     }
 
-    //Method to return a single string representation of a vector
-    private string vecToStr(Vector3 val)
-    {
-        return ("" + val[0] + ";" + val[1] + ";" + val[2] + ";");
-    }
-
     //Method to write the start information
     void startInfo()
     {
@@ -501,6 +511,35 @@ public class Experiment : MonoBehaviour
         }
         //File.AppendAllText(dir, csv.ToString());
     }
+
+    //Method to make file path name unique if it aready exists
+    public string MakeUnique(string path)
+    {
+        string dir = Path.GetDirectoryName(path);
+        string fileName = Path.GetFileNameWithoutExtension(path);
+        string fileExt = Path.GetExtension(path);
+
+        for (int i = 1; ; ++i)
+        {
+            if (!File.Exists(path))
+            {
+                Debug.Log(path);
+                return path;
+            }
+
+            path = Path.Combine(dir, fileName + "" + i + fileExt);
+        }
+    }
+
+    //Method called when application closed to write data to text file
+    private void OnApplicationQuit()
+    {
+        File.AppendAllText(dir, csv.ToString());
+    }
+
+    #endregion
+
+    #region Methods - PlayerPrefs
 
     //Method to get calibrated start position for environment
     public static Vector3 getEnvShift()
@@ -542,30 +581,6 @@ public class Experiment : MonoBehaviour
 
         return trans;
 
-    }
-
-    //Method called when application closed to write data to text file
-    private void OnApplicationQuit()
-    {
-        File.AppendAllText(dir, csv.ToString());
-    }
-
-    public string MakeUnique(string path)
-    {
-        string dir = Path.GetDirectoryName(path);
-        string fileName = Path.GetFileNameWithoutExtension(path);
-        string fileExt = Path.GetExtension(path);
-
-        for (int i = 1; ; ++i)
-        {
-            if (!File.Exists(path))
-            {
-                Debug.Log(path);
-                return path;
-            }
-                
-            path = Path.Combine(dir, fileName + " " + i + fileExt);
-        }
     }
 
     //Method to get reset stroed game variables to default
@@ -610,5 +625,7 @@ public class Experiment : MonoBehaviour
 
         //************************************************************************ */
     }
+
+    #endregion
 
 }
