@@ -16,7 +16,7 @@ public class Experiment : MonoBehaviour
 {
     //Experiment variables to change
     public static int experiment = 1; //0 = calibration, 1 = normal, 2 = adaptation, 3 = reward
-    private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\t.txt"; //path directory to write text file to
+    private string dir = @"C:\Users\iView\Documents\Guhan\PoolVR\Data\test.txt"; //path directory to write text file to
 
 
     //************************************************************************ */
@@ -89,12 +89,15 @@ public class Experiment : MonoBehaviour
     private int count = 0;
 
     //testing
+    public static bool first = true;
 
     /*
         Method called at start of game
     */
-    void Start()
+    void Awake()
     {
+        //set unique file path
+        dir = MakeUnique(dir);
 
         //Initialize game variables
         initGameVariables();
@@ -123,11 +126,17 @@ public class Experiment : MonoBehaviour
     */
     void FixedUpdate()
     {
-
+        
         //restart scene after shot is taken and balls are stationary
         if (experiment != 0 && cue_cueball && (isSceneStill() || outOfBounds))
         {
+            if (first)
+            {
+                first = false;
+                return;
+            }
             cue_cueball = false;
+            first = true;
             StartCoroutine(wait());
             //restartScene();
             
@@ -355,6 +364,7 @@ public class Experiment : MonoBehaviour
         restartScene();
 
     }
+    
 
     //Method to set Rigidbody rb velocity to zero
     public static void setStill(Rigidbody rb)
@@ -486,7 +496,7 @@ public class Experiment : MonoBehaviour
         if (!File.Exists(dir))
         {
             // Create a file to write to.
-            string titles = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}", "TrialNumber", "Timestamp", "cueposfront", "cueposback", "cuevel", "CBpos", "CBvel", "RBpos", "RBvel", "C1", "C2", "C3" + System.Environment.NewLine);
+            string titles = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}", "TrialNumber", "Timestamp", "cueposfront", "cueposback", "cuevel", "CBpos", "CBvel", "RBpos", "RBvel", "C1", "C2", "C3", corner1.position.ToString("f4"), corner2.position.ToString("f4"), corner5.position.ToString("f4"), corner6.position.ToString("f4") + System.Environment.NewLine);
             File.WriteAllText(dir, titles);
         }
         //File.AppendAllText(dir, csv.ToString());
@@ -496,7 +506,7 @@ public class Experiment : MonoBehaviour
     public static Vector3 getEnvShift()
     {
         float offx = PlayerPrefs.GetFloat("ShiftEnvironemnt_x"); //cm : unity
-        float offy = PlayerPrefs.GetFloat("ShiftEnvironemnt_y") + (2.7f * PlayerPrefs.GetFloat("cmToUnity")); //3
+        float offy = PlayerPrefs.GetFloat("ShiftEnvironemnt_y") + (3f * PlayerPrefs.GetFloat("cmToUnity")); //3
         float offz = PlayerPrefs.GetFloat("ShiftEnvironemnt_z");
         return new Vector3(offx, offy, offz);
     }
@@ -538,6 +548,24 @@ public class Experiment : MonoBehaviour
     private void OnApplicationQuit()
     {
         File.AppendAllText(dir, csv.ToString());
+    }
+
+    public string MakeUnique(string path)
+    {
+        string dir = Path.GetDirectoryName(path);
+        string fileName = Path.GetFileNameWithoutExtension(path);
+        string fileExt = Path.GetExtension(path);
+
+        for (int i = 1; ; ++i)
+        {
+            if (!File.Exists(path))
+            {
+                Debug.Log(path);
+                return path;
+            }
+                
+            path = Path.Combine(dir, fileName + " " + i + fileExt);
+        }
     }
 
     //Method to get reset stroed game variables to default

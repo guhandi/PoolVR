@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using System.Collections;
+
 
 /*
     A class that streams data from an Optitrack Motiv rigidbody object to the Unity environment
@@ -28,10 +30,8 @@ public class OptitrackRigidBody : MonoBehaviour
     public static Vector3 avgVelocity; //average velocity of the cue stick (for smoothing)
     private List<Vector3> VelocityList; //list of last 5 cue velocities
 
-    private int backID1;
-    private int backID2;
-    private int frontID1;
-    private int frontID2;
+    private int backID1; private int backID2; private int frontID1; private int frontID2;
+    private Vector3 Oback1; private Vector3 Oback2; private Vector3 Ofront1; private Vector3 Ofront2;
 
     //CALIBRATION STUFF
     private int corner1ID; //marker ID at corner 1 (for calibration)
@@ -84,6 +84,8 @@ public class OptitrackRigidBody : MonoBehaviour
         C3 = new List<Vector3>();
 
         //get IDs and positions of optitrack markers
+        backID1 = -1; backID2 = -2; frontID1 = -3; frontID2 = -4;
+        Oback1 = new Vector3(); Oback2 = new Vector3(); Ofront1 = new Vector3(); Ofront2 = new Vector3();
         if (Experiment.experiment == 0 && markerIDs)
         {
             getCalMarkerId();
@@ -125,6 +127,12 @@ public class OptitrackRigidBody : MonoBehaviour
             calibrateTable();
         }
 
+        //Get cue marker ID
+        if (count == 100)
+        {
+            getCueMarkers();
+        }
+
         //EXPERIMENT - get marker positions and translate cue position from Optitrack to Unity environemnt
         if (Experiment.experiment != 0)
         {
@@ -144,25 +152,30 @@ public class OptitrackRigidBody : MonoBehaviour
         Vector3 ObackPos = new Vector3(); //optitrack back position
         List<OptitrackMarkerState> markerStates = new List<OptitrackMarkerState>(); //initialize list of marker objects from rigidbody
         List<Vector3> markerPositions = new List<Vector3>(); //list of all cue marker positions
-
+        
 
         if (rbState != null)
         {
             //Get marker positions
             markerStates = StreamingClient.GetLatestMarkerStates(); //get objects of all markers from rigidbody
+            Dictionary<int, Vector3> dict = new Dictionary<int, Vector3>();
+            int num = markerStates.Count;
 
+            int c = 0;
             //if not all markers are tracked, make cue stick invisible
-            if (markerStates.Count != 4)
+            if (markerStates.Count < 5)
             {
                 Experiment.cuestickMesh.enabled = false;
                 //Debug.Log(markerStates.Count);
                 cuePos = prevPos;
+                c = -1;
                 return;
             }
-            else
+            else if (markerStates.Count == 5)
             {
-                Experiment.cuestickMesh.enabled = true;
+                c = 1;
             }
+            Experiment.cuestickMesh.enabled = true;
 
             //Loop through markers
             for (int idx = 0; idx < markerStates.Count; idx++)
@@ -171,11 +184,60 @@ public class OptitrackRigidBody : MonoBehaviour
                 int markerID = marker.Id;
                 Vector3 pos = marker.Position;
                 markerPositions.Add(marker.Position);
+                dict.Add(markerID, pos);
+
+            
             }
 
+            //foreach (OptitrackMarkerState m in markerStates)
+            //{
+            //    if (m.Id == backID1)
+            //    {
+            //        Oback1 = m.Position;
+            //    }
+            //    else if (m.Id == backID2)
+            //    {
+            //        Oback2 = m.Position;
+            //    }
+            //    else if (m.Id == frontID1)
+            //    {
+            //        Ofront1 = m.Position;
+            //    }
+            //
+            //    else if (m.Id == frontID2)
+            //    {
+            //        Ofront2 = m.Position;
+            //    }
+            //}
+            
             IEnumerable<Vector3> sorted = markerPositions.OrderBy(v => v.z); //sort marker positions by z position
-            OfrontPos = (sorted.ElementAt(3) + sorted.ElementAt(2)) / 2; //front position is average of front two markers
-            ObackPos = (sorted.ElementAt(1) + sorted.ElementAt(0)) / 2; //back position is average of back two markers
+
+            //normal
+            if (c==0)
+            {
+                OfrontPos = (sorted.ElementAt(5) + sorted.ElementAt(4)) / 2;
+                ObackPos = (sorted.ElementAt(2) + sorted.ElementAt(1)) / 2;
+            }
+            else if (c==1)
+            {
+                OfrontPos = (sorted.ElementAt(num - 1) + sorted.ElementAt(num - 2)) / 2;
+                Vector3 dif = OfrontPos - sorted.ElementAt(num - 3);
+                ObackPos = sorted.ElementAt(0) + dif;
+            }
+            
+            //if (c)
+            //{
+            //    Vector3 dif = OfrontPos - sorted.ElementAt(count - 3);
+            //    ObackPos = sorted.ElementAt(0) + dif;
+            //}
+            //else
+            //{
+            //    ObackPos = (sorted.ElementAt(2) + sorted.ElementAt(1)) / 2; //back position is average of back two markers
+            //}
+            //OfrontPos = (sorted.ElementAt(3) + sorted.ElementAt(2)) / 2; //front position is average of front two markers
+            //ObackPos = (sorted.ElementAt(1) + sorted.ElementAt(0)) / 2; //back position is average of back two markers
+            //OfrontPos = (dict[frontID1] + dict[frontID2]) / 2;
+            //ObackPos = (dict[backID1] + dict[backID2]) / 2;
 
             //Translate optitrack positions to unity using helper methods ( [Xo, Zo, 1] * M = [Xu, Zu, 1])
             float[,] frontMatrix = new float[,] { { OfrontPos.x }, { OfrontPos.z }, { 1 } };
@@ -360,18 +422,25 @@ public class OptitrackRigidBody : MonoBehaviour
             int mID = m.Id;
             Vector3 pos = m.Position;
             Debug.Log(pos.ToString("f4"));
+            Debug.Log(mID);
             float zpos = pos.z;
 
             sortedMarkers.Add(zpos, mID);
 
         }
-        backID1 = sortedMarkers.Values[0];
-        backID2 = sortedMarkers.Values[1];
-        frontID1 = sortedMarkers.Values[2];
-        frontID2 = sortedMarkers.Values[3];
+        backID1 = sortedMarkers.Values[1];
+        backID2 = sortedMarkers.Values[2];
+        frontID1 = sortedMarkers.Values[4];
+        frontID2 = sortedMarkers.Values[5];
         markerIDs = false;
 
+        Debug.Log("bid  " + backID1);
+        Debug.Log("bid2  " + backID2);
+        Debug.Log(frontID1);
+        Debug.Log("fid2  " + frontID2);
+
     }
+
 
     private void OnTriggerEnter(Collider col)
     {
@@ -380,9 +449,10 @@ public class OptitrackRigidBody : MonoBehaviour
         if (col.gameObject.tag == "cueball")
         {
 
-            Experiment.cue_cueball = true;
+
             //Vector3 pos = col.GetContact(0).point;
-            avgVelocity = AverageVelocity(VelocityList, Experiment.numVelocitiesAverage);
+            //avgVelocity = AverageVelocity(VelocityList, Experiment.numVelocitiesAverage);
+            avgVelocity = MedianVel(VelocityList, 5);
             float mag = cueVelocity.magnitude;
             Vector3 vel = new Vector3(0.05f, 0, 5f);
             //float scale = (float)Math.Pow(mag, 1.1f) / mag;
@@ -391,6 +461,7 @@ public class OptitrackRigidBody : MonoBehaviour
             //rb.velocity = momentumVec; //add velocity to cue ball
 
             Experiment.cueballRB.AddForce(avgVelocity, ForceMode.Impulse);
+            Experiment.cue_cueball = true;
 
 
             Debug.Log("avgvelocity   :  " + avgVelocity.ToString("f4")); //min = 0.5    max = 5
@@ -431,6 +502,24 @@ public class OptitrackRigidBody : MonoBehaviour
 
         }
     }
+    //Helper method to calculate average of last n vectors in list
+    private Vector3 MedianVel(List<Vector3> vlist, int num)
+    {
+        List<Vector3> medVec = new List<Vector3>();
+        if (vlist.Count < num)
+        {
+            num = vlist.Count;
+        }
+        for (int idx = vlist.Count - 1; idx >= vlist.Count - num; idx--)
+        {
+            medVec.Add(vlist[idx]);
+        }
+        IEnumerable<Vector3> sorted = medVec.OrderBy(v => v.magnitude);
+        Vector3 median = sorted.ElementAt(num/2);
+        return median;
+
+    }
+
 
     //Helper method to calculate average of last n vectors in list
     private Vector3 AverageVelocity(List<Vector3> vlist, int numavg)
