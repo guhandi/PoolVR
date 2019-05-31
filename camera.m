@@ -18,15 +18,15 @@ numtrials = length(tnum) - 1;
 window = 1000;
 
 %start data
-xo = 247; zo = 687;
-%xo = 262; zo = 701;
+%xo = 247; zo = 687;
+xo = 251; zo = 699;
 corner1x = 450; corner1z = 800;
-w = 400; us = 1/w;
+w = 349; us = 1/w; %w is width
 
 cbx = {}; cbz = {}; rbx = {}; rbz = {};
 timedata = {}; timesec = {};
 xdata = {}; zdata = {};
-for i=1:numtrials
+for i=1:numtrials-1
     
     start = tnum(i);
     ed = tnum(i+1);
@@ -50,23 +50,40 @@ for i=1:numtrials
     xd= -us * (x-xo); %scale and shift
     zd= -us * (z-zo); %scale and shift
     
+    
     %fix losing track (sporadic changes)
-    bad = find(xd > 0.45);
-    xd(bad) = [];
-    zd(bad) = [];
-    t(:,bad) = [];
+    err=0.25;
+    for b=length(zd):-1:2
+        if( abs( zd(b) - zd(b-1)) > err)
+            xd(b)=[];
+            zd(b)=[];
+            t(:,b)=[];
+        end
+    end
+    %bad = find(xd > 0.45);
+    %xd(bad) = [];
+    %zd(bad) = [];
+    %t(:,bad) = [];
+    
+    plot(xd,zd)
        
     %set variables for each trial
     timedata(i) = {t};
     cbx{i} = xd;
     cbz{i} = zd;
+    cbxdot{i} = diff(xd);
+    cbzdot{i} = diff(zd);
     
 
 end
 
+
 timesec = getTime(timedata);
-for t=1:length(cbz)
-    idx = find(cbz{t} > 0.01);
+%%Adjust for start of shot
+start =1;
+for t=1:length(cbzdot)
+    
+    idx = find(cbz{t} > 0.05);
     if (length(idx) == 0)
        start = 1; 
     else
