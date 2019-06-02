@@ -1,9 +1,9 @@
-function UnityData = UnityCoord(data)
-%corner1pos = (-0.3604, 0.8554, -0.9259)
-%corner2pos = (0.3342, 0.8554, -0.9259)
-%corner5pos = (-0.3604, 0.8554, 0.4634)
-%corner6pos = (0.3342, 0.8554, 0.4634)
+%% Function to process the Unity Text data
+%return UnityData = {time, x position, z position, x velocity, z velocity}
+%param: data, unity pocket x position vector (for scaling)
+function UnityData = UnityCoord(data,pocketx)
 
+%Unity variables to return
 timedata={}; xdata={}; zdata={}; xdot={}; zdot={};
 UnityData = {};
 
@@ -13,36 +13,37 @@ time = table2array(data(:,2));
 cbPos = table2array(data(:,6));
 cbVel = table2array(data(:,7));
 
+%get X and Z position and velocity
 [cbXpos,cbYpos,cbZpos] = categoryToVector(cbPos);
 [cbXvel,cbYvel,cbZvel] = categoryToVector(cbVel);
 
-%pocketx = [-0.3604,0.3342,-0.3604,0.3342,-0.3604,0.4634]; %val9&10
-%pocketz = [-0.9259,-0.9259,-0.2313,-0.2313,0.3409,0.4634];
-pocketx = [-0.3409,0.3560,-0.3409,0.3560,-0.3409,0.3560]; %val vtwo
-pocketz = [-0.9409,-0.9409,-0.3,-0.3,0.3409,0.3409];
+%scale factor us to make wifht of table 0.5
 w = abs(pocketx(1) - pocketx(2));
 us = 1/w;
+
+%intial position of cueball
 xstart = cbXpos(1);
 zstart = cbZpos(1);
 
-tr=0;
+%go through data for each trial
+tr=0; %good trial number
 for t=1:trial(end)-1
 
 
 trialnum = t;
 idx = find(trial == trialnum);
 trtime = time(idx);
-if (trtime(end) < 1)
+if (trtime(end) < 1) %if trial time less than 1 second then consider "bad" trial
     continue;
 end
 tr=tr+1;
 
 x = us * (cbXpos(idx)-xstart); %x position data for specific trial
-z = us * (cbZpos(idx)-zstart);
+z = us * (cbZpos(idx)-zstart); %z position data for specific trial
 xdot{tr} = cbXvel(idx);
 zdot{tr} = cbZvel(idx);
 
-%shift time
+%shift time so cue stick - cue ball collision is at t=0
 idx = find(abs(zdot{tr}) > 0.001);
 if (length(idx) == 0)
     idx(1) = 1;

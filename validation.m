@@ -1,25 +1,36 @@
-UD = UnityCoord(validationvtwo4);
-CD = camera(validationavrv2t4052920191435position, validationavrv2t4052920191435beginTrial);
-[upos,uvel,cpos,cvel] = TimeSeries(UD,CD,0.5);
-[UnityInfo, RealInfo] = VelocityProfile(upos,uvel,cpos,cvel);
+% %Get unity data
+% pocketx = [-0.3604,0.3342,-0.3604,0.3342,-0.3604,0.4634]; %val9&10
+% %pocketx = [-0.3409,0.3560,-0.3409,0.3560,-0.3409,0.3560]; %val vtwo
+% 
+% UD = UnityCoord(Validation9,pocketx);
+% CD = camera(PILOTGS9042420191928position, PILOTGS9042420191928beginTrial);
+% [upos,uvel,cpos,cvel] = TimeSeries(UD,CD,0.5);
+% [UnityInfo, RealInfo] = VelocityProfile(upos,uvel,cpos,cvel);
 
 
 %% plots
 
-uvel = UnityInfo.velocity;
-utheta = UnityInfo.theta;
-udist = UnityInfo.distance;
-rvel = RealInfo.velocity;
-rtheta = RealInfo.theta;
-rdist = RealInfo.distance;
+%uvel = UnityInfo.velocity; utheta = UnityInfo.theta; udist = UnityInfo.distance;
+%rvel = RealInfo.velocity; rtheta = RealInfo.theta; rdist = RealInfo.distance;
 
-% uvel = [Val9Result.Unity.velocity, Val10Results.Unity.velocity];
-% utheta = [Val9Result.Unity.theta, Val10Results.Unity.theta];
-% udist = [Val9Result.Unity.distance, Val10Results.Unity.distance];
+%Validation 9&10 (version 1)
+% uvel = [Valvone9results.Unity.velocity, Valvone10results.Unity.velocity];
+% utheta = [Valvone9results.Unity.theta, Valvone10results.Unity.theta];
+% udist = [Valvone9results.Unity.distance, Valvone10results.Unity.distance];
 % 
-% rvel = [Val9Result.Real.velocity, Val10Results.Real.velocity];
-% rtheta = [Val9Result.Real.theta, Val10Results.Real.theta];
-% rdist = [Val9Result.Real.distance, Val10Results.Real.distance];
+% rvel = [Valvone9results.Real.velocity, Valvone10results.Real.velocity];
+% rtheta = [Valvone9results.Real.theta, Valvone10results.Real.theta];
+% rdist = [Valvone9results.Real.distance, Valvone10results.Real.distance];
+
+%Validation final (version 2)
+uvel = [Valvtwo3results.Unity.velocity, Valvtwo4results.Unity.velocity];
+utheta = [Valvtwo3results.Unity.theta, Valvtwo4results.Unity.theta];
+udist = [Valvtwo3results.Unity.distance, Valvtwo4results.Unity.distance];
+
+rvel = [Valvtwo3results.Real.velocity, Valvtwo4results.Real.velocity];
+rtheta = [Valvtwo3results.Real.theta, Valvtwo4results.Real.theta];
+rdist = [Valvtwo3results.Real.distance, Valvtwo4results.Real.distance];
+
 
 MSEv = sqrt(sum((uvel - rvel).^2));
 MSEt = sqrt(sum((utheta - rtheta).^2));
